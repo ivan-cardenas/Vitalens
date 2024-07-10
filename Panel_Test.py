@@ -56,6 +56,8 @@ active_wells_df = gpd.GeoDataFrame(
     {
         "Name": wells["Name"],
         "Num_Wells": wells["Num_Wells"],
+        "Ownership": wells["Inside_Prop"],
+        "Max_permit" : wells["Permit__Mm3_per_jr_"],
         "Balance area": wells["Balansgebied"],
         "Active": [True] * len(wells),
         "Value": wells["Extraction_2023__Mm3_per_jr_"],
@@ -69,6 +71,7 @@ active_wells_df = gpd.GeoDataFrame(
     }
 )
 
+print("here", active_wells_df["Num_Wells"], active_wells_df["Ownership"])
 
 yearCal = 2022
 growRate = 0.0062
@@ -76,7 +79,23 @@ demand_capita = 0.130
 
 # Get Destination Attributes
 hexagons = gpd.read_file(gpkg_file, layer="H3_Lvl8")
+# Create a new column 'Type_T' with default values
+hexagons["Type_T"] = ""
 
+# Iterate over rows and assign values based on the 'Type' column
+for idx, row in hexagons.iterrows():
+    if row["Type"] == 1:
+        hexagons.at[idx, "Type_T"] = "Source"
+    elif row["Type"] == 2:
+        hexagons.at[idx, "Type_T"] = "Destination"
+    elif row["Type"] == 3:
+        hexagons.at[idx, "Type_T"] = "Restricted Natura2000"
+    elif row["Type"] == 4:
+        hexagons.at[idx, "Type_T"] = "Restricted Other"
+    elif row["Type"] == 4:
+        hexagons.at[idx, "Type_T"] = "Source and Restricted"
+    else:
+        hexagons.at[idx, "Type_T"] = "Germany"
 
 hexagons_filterd = gpd.GeoDataFrame(
     {
@@ -86,7 +105,7 @@ hexagons_filterd = gpd.GeoDataFrame(
         "Current Pop": hexagons["Pop_2022"],
         "Industrial Demand": hexagons["Ind_Demand"],
         "Water Demand": hexagons["Pop_2022"] * 0.130 * 365 / 1000000,
-
+        "Type": hexagons["Type_T"],
         "geometry" : hexagons["geometry"]
         
     }
@@ -99,6 +118,16 @@ hexagons_filterd = gpd.GeoDataFrame(
 def calculate_total_extraction():
     total = active_wells_df[active_wells_df["Active"]]["Value"].sum()
     return total
+
+# Calculate Available water
+def calculate_available():
+    total = active_wells_df[active_wells_df["Active"]]["Max_permit"].sum() - active_wells_df[active_wells_df["Active"]]["Value"].sum()
+    return total
+
+# Calculate Ownership percentage
+def calculate_ownership():
+    total = active_wells_df[active_wells_df["Active"]]["Ownership"].sum()/active_wells_df[active_wells_df["Active"]]["Num_Wells"].sum()
+    return total*100
 
 
 # # Function to calculate the total OPEX based on active wells
@@ -134,7 +163,10 @@ def calculate_total_envCost_by_balance():
         .groupby("Balance area")["envCost"]
         .sum()
     )
-
+# Calculate Ownership percentage
+def calculate_affected_Natura():
+    total = active_wells_df[active_wells_df["Active"]["Type"]]["Restricted Natura2000"].sum()*629387.503078/10000
+    return total*100
 
 # Function to update the DataFrame display
 def update_df_display():
@@ -225,7 +257,8 @@ def update_balance_lzh_gauges():
 m = folium.Map(location=[52.38, 6.7], zoom_start=10)  # Adjust the center and zoom level as necessary
 popup_well = folium.GeoJsonPopup(fields=["Name", "Balance area", "Value"],
                                  aliases=["Well Name", "Balance Area", "Extraction in Mm\u00b3/Year"])
-popup_hex = folium.GeoJsonPopup(fields=["Balance Area", "Water Demand", "Current Pop"])
+popup_hex = folium.GeoJsonPopup(fields=["Balance Area", "Water Demand", "Current Pop", "Type"],
+                                )
 icon_path = "./Assets/Water Icon.png"
 icon = folium.CustomIcon(
     icon_path,
@@ -271,9 +304,24 @@ def update_layers():
                     popup=popup_hex,
                 #    tooltip=folium.GeoJsonTooltip(fields=["Balance Area"], aliases=["Balance Area:"]),
                 #    style_function=hexagons_filterd["style"]
-                ).add_child(colormap).add_to(m)
-
+                ).add_to(m)
     
+    h = folium.GeoJson(hexagons_filterd,
+                name="Natura2000 Restricted Area",
+                    style_function=lambda x: {
+                        "fillColor": colormap(x["properties"]["Type"])
+                        if x["properties"]["Water Demand"] is not None
+                        else "#6b6d69",
+                        "color": "darkgray",
+                        "fillOpacity": 0.8,
+                        "weight":  0.7,
+                        },
+                    popup=popup_hex,
+                #    tooltip=folium.GeoJsonTooltip(fields=["Balance Area"], aliases=["Balance Area:"]),
+                #    style_function=hexagons_filterd["style"]
+                ).add_to(m)
+
+    m.add_child(colormap)
     folium.LayerControl().add_to(m)
 
     return m
@@ -296,12 +344,16 @@ def Scenario1(event):
 def update_indicators():
     total_extraction.value = calculate_total_extraction()
     total_opex.value = calculate_total_OPEX()
+    excess_cap.value = calculate_available()
     update_balance_opex()
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
     update_balance_lzh_gauges()  # Add this line to update LZH gauges
     df_display.object = update_df_display()
+    own_pane.value = calculate_ownership()
+    natura_pane.value = calculate_affected_Natura()
     map_pane.object = update_layers()
+
 
 
 # Initialize a dictionary to hold the active state and slider references
@@ -376,29 +428,42 @@ tabs = pn.Tabs(("Well Capacities", slider_layout), ("Scenarios", scenario_layout
 
 
 # Convert the Folium map to a Panel pane
-map_pane = pn.pane.plot.Folium(m, width=900, height=500)
+map_pane = pn.pane.plot.Folium(m, width=500, height=500)
 
 
 # Create an indicator for the total extraction
 total_extraction = pn.indicators.Number(
-    name="Total Supply per year",
+    name="Total Supply",
     value=calculate_total_extraction(),
     format="{value:.2f} Mm\u00b3/Year",
+    font_size ='28pt',
+    title_size = '18pt'
 )
 
 # Indicator total OPEX
 total_opex = pn.indicators.Number(
-    name="Total OPEX", value=calculate_total_OPEX(), format="{value:0,.0f} \u20AC/Year"
+    name="Total OPEX", value=calculate_total_OPEX(), format="{value:0,.0f} \u20AC/Year",font_size ='28pt',
+    title_size = '18pt', align='center'
 )
 
 # Create indicators for OPEX by balance area
 balance_opex = calculate_total_OPEX_by_balance()
 balance_opex_indicators = {
     balance: pn.indicators.Number(
-        name=f"OPEX {balance}", value=value, format="{value:0,.0f} \u20AC/Year"
+        name=f"OPEX {balance}", value=value, format="{value:0,.0f} \u20AC/Year", font_size ='28pt',
+    title_size = '18pt', align='center'
     )
     for balance, value in balance_opex.items()
 }
+
+excess_cap = pn.indicators.Number(name="Excess Capacity", value=calculate_available(), format="{value:0.2f} Mm\u00b3/Year", font_size ='28pt',
+    title_size = '18pt', align='center')
+
+own_pane = pn.indicators.Number(name="Landownership", value=calculate_ownership(), format="{value:0.2f} %", font_size ='28pt',
+    title_size = '18pt', align='center')
+
+natura_pane = pn.indicators.Number(Name="Aproximate Natura 2000 Affected area", value=calculate_affected_Natura(), format="{value:0.2f} Ha", font_size ='28pt',
+    title_size = '18pt', align='center')
 
 # Create a Markdown pane to display the DataFrame BACKEND
 df_display = pn.pane.Markdown(update_df_display())
@@ -408,7 +473,8 @@ df_Hexagons = pn.pane.DataFrame(hexagons_filterd.head(), name="Hexagons data")
 
 # Create indicator for Total Water demand
 total_demand = pn.indicators.Number(
-    name="Water Demand", value=calculate_total_Demand(), format="{value:0,.2f} Mm\u00b3/Year"
+    name="Water Demand", value=calculate_total_Demand(), format="{value:0,.2f} Mm\u00b3/Year", font_size ='28pt',
+    title_size = '18pt'
 )
 
 # create Indicator for LEVERENSZEKERHEID
@@ -467,23 +533,28 @@ lzh_layout[0, 1] = balance_lzh_layout
 
 
 # create layout for OPEX
-opexTabs = pn.Tabs(total_opex, *balance_opex_indicators.values())
+opexTabs = pn.Tabs(total_opex, *balance_opex_indicators.values(), align=('center', 'center'))
 
 
 
 # create layout for two items
-money_layout = pn.Row(total_extraction, pn.Spacer(width=100), opexTabs, sizing_mode='stretch_width')
+Supp_dem = pn.Row(total_extraction, pn.Spacer(width=100), total_demand, sizing_mode='stretch_width')
 
-main1 = pn.GridSpec(sizing_mode="stretch_both")
+main1 = pn.GridSpec(height= 600, sizing_mode="stretch_width")
+main1[0,0] = pn.Row(map_pane)
+main1[0,1] = pn.Column(lzh, Supp_dem, opexTabs, sizing_mode='stretch_height')
 
-map_lzh = pn.Row(map_pane, pn.Spacer(width=100), lzh, sizing_mode='stretch_width')
+main2 = pn.Row(natura_pane, excess_cap, own_pane,  height=200, sizing_mode='stretch_width')
+
+
 
 # FULL PAGE LAYOUT
 Box = pn.template.FastListTemplate(
     # editable=True,
-    title="Vitalens",
+    title="VITALENS",
+    logo='https://uavonline.nl/wp-content/uploads/2020/11/vitens-logo-1.png',
     sidebar=tabs,
-    main=[map_lzh, money_layout, total_demand, df_display, df_Hexagons],
+    main=[main1, main2],
 )
 
 
