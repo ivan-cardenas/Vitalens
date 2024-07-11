@@ -165,7 +165,7 @@ def calculate_total_envCost_by_balance():
     )
 # Calculate Ownership percentage
 def calculate_affected_Natura():
-    total = active_wells_df[active_wells_df["Active"]["Type"]]["Restricted Natura2000"].sum()*629387.503078/10000
+    total = active_wells_df[active_wells_df["Active"]["Type_T"]]["Restricted Natura2000"].sum()*629387.503078/10000
     return total*100
 
 # Function to update the DataFrame display
