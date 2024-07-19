@@ -8,12 +8,12 @@ import folium
 from folium.plugins import MarkerCluster
 from folium.plugins import Search
 import branca
-from functools import partial
 
 # Styling
 ACCENT = "#3c549d"
 LOGO = "https://assets.holoviz.org/panel/tutorials/matplotlib-logo.png"
 TITLE = "VITALENS"
+
 
 cssStyle = ['''
 @import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
@@ -46,17 +46,20 @@ cssStyle = ['''
     border-radius: 0.3em !important;
   }
   '''            
-]
+            ]
 
 # Initialize extensions
 pn.extension(sizing_mode="stretch_width")
 pn.extension("plotly")
 pn.extension("echarts")
-pn.extension(design='material', css_files=cssStyle)
+pn.extension(design='material',css_files=cssStyle)
 pn.extension(
     "tabulator", "ace", css_files=["https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"]
 )
 # Define the path to your custom CSS file
+
+
+
 
 # Load the GeoPackage file
 gpkg_file = "./Assets/Thematic_data.gpkg"
@@ -85,6 +88,7 @@ wells["totOpex_m3"] = (
 )
 wells["env_cost_m3"] = wells["CO2Cost_EUR_m3"] + wells["DroughtDamage_EUR_m3"]
 
+
 # Initialize a DataFrame to hold the active state and slider values
 active_wells_df = gpd.GeoDataFrame(
     {
@@ -106,6 +110,7 @@ active_wells_df = gpd.GeoDataFrame(
         "geometry": wells["geometry"],
     }
 )
+
 
 yearCal = 2022
 growRate = 0.0062
@@ -145,10 +150,12 @@ hexagons_filterd = gpd.GeoDataFrame(
     }
 )
 
+
 # Function to calculate the total extraction based on active wells
 def calculate_total_extraction():
     total = active_wells_df[active_wells_df["Active"]]["Value"].sum()
     return total
+
 
 # Calculate Available water
 def calculate_available():
@@ -158,6 +165,7 @@ def calculate_available():
     )
     return total
 
+
 # Calculate Ownership percentage
 def calculate_ownership():
     total = (
@@ -166,10 +174,12 @@ def calculate_ownership():
     )
     return total * 100
 
+
 # # Function to calculate the total OPEX based on active wells
 def calculate_total_OPEX():
     total = (active_wells_df[active_wells_df["Active"]]["OPEX"]).sum()
     return total/1000000
+
 
 # Function to calculate the total OPEX grouped by Balance based on active wells
 def calculate_total_OPEX_by_balance():
@@ -177,16 +187,19 @@ def calculate_total_OPEX_by_balance():
         active_wells_df[active_wells_df["Active"]].groupby("Balance area")["OPEX"].sum()
     )/1000000
 
+
 # Function to update balance OPEX indicators
 def update_balance_opex():
     balance_opex = calculate_total_OPEX_by_balance()
     for balance, indicator in balance_opex_indicators.items():
         indicator.value = balance_opex.get(balance, 0)
 
+
 # # Function to calculate the total ENV cost based on active wells
 def calculate_total_envCost():
     total = (active_wells_df[active_wells_df["Active"]]["envCost"]).sum()
     return total
+
 
 # Function to calculate the total Env Cost grouped by Balance based on active wells
 def calculate_total_envCost_by_balance():
@@ -195,6 +208,7 @@ def calculate_total_envCost_by_balance():
         .groupby("Balance area")["envCost"]
         .sum()
     )
+
 
 # Calculate affected Area
 def calculate_affected_Natura():
@@ -207,6 +221,7 @@ def calculate_affected_Natura():
     total = restricted.shape[0]
     return total * 629387.503078 / 100000
 
+
 def calculate_total_CO2_cost():
     # Filter active wells
     active_wells = active_wells_df[active_wells_df["Active"] == True]
@@ -214,6 +229,7 @@ def calculate_total_CO2_cost():
     active_wells["CO2_Cost"] = active_wells_df["Value"] * active_wells_df["CO2_m3"]
     total_environmental_cost = active_wells["CO2_Cost"].sum()
     return total_environmental_cost
+
 
 def calculate_total_Drought_cost():
     # Filter active wells
@@ -227,14 +243,21 @@ def calculate_total_Drought_cost():
 
     return total_environmental_cost
 
+
 # Function to update the DataFrame display
 def update_df_display():
-    return f"```python\n{active_wells_df}\n```"
+    return f"
+
+python\n{active_wells_df}\n
+
+"
+
 
 # Function to toggle the active state based on the checkbox
 def toggle_well(event, well_name):
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Active"] = event.new
     update_indicators()
+
 
 # Function to update the slider value in the DataFrame
 def update_slider(event, well_name):
@@ -248,12 +271,12 @@ def update_slider(event, well_name):
         event.new * env_m3 * 1000000
     )
     update_indicators()
-
+    
 # Function to update the extraction value based on the selected radio button option
 def update_radio(event, well_name):
     current_value = wells.loc[wells["Name"] == well_name, "Extraction_2023__Mm3_per_jr_"].values[0]
     max_value = wells.loc[wells["Name"] == well_name, "Permit__Mm3_per_jr_"].values[0]
-    agreement = wells.loc[wells["Name"]== well_name, "Agreement__Mm3_per_jr_"].values[0]
+    aggrement = wells.loc[wells["Name"]== well_name, "Agreement__Mm3_per_jr_"].values[0]
     
     if event.new == "-10%":
         new_value = current_value * 0.9
@@ -268,20 +291,18 @@ def update_radio(event, well_name):
     elif event.new == "Maximum Permit":
         new_value = max_value
     elif event.new == "Agreement":
-        new_value = agreement
+        new_value = aggrement
     
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Value"] = new_value
-    # Update the NamePane with the current extraction value and well name
-    name_pane = active_wells[well_name]["name_pane"]
-    name_pane.object = update_well_Name(well_name)
     update_indicators()
     
-    
+    # Update the NamePane with the current extraction value and well name
+    # NamePane
+    NamePane.object = update_well_Name(well_name)
 
-def update_well_Name(well_name):
+def update_well_Name (well_name):
     current_extraction = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
-    balanceArea = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
-    return f"{well_name} {current_extraction:.2f}"
+    return f"{well_name} {current_extraction}"
 
 # Function to update the yearCal variable
 def update_year(event):
@@ -299,14 +320,17 @@ def update_year(event):
     df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
     update_indicators()  # Update the total demand indicator
 
+
 def calculate_total_Demand():
     total = ((hexagons_filterd["Water Demand"]).sum()) + (
         (hexagons_filterd["Industrial Demand"]).sum()
     )
     return total
 
+
 def calculate_demand_by_balance():
     return active_wells_df.groupby("Balance area")["Water Demand"].sum()
+
 
 # Function to update balance OPEX indicators
 def update_demand():
@@ -314,11 +338,13 @@ def update_demand():
     for balance, indicator in calculate_demand_by_balance.items():
         indicator.value = total_demand.get(balance, 0)
 
+
 def calculate_lzh():
     # Calculate Leveringszekerheid (Delivery Security), replace with actual calculation
     total_extraction = calculate_total_extraction()
     total_demand = calculate_total_Demand()
     return round((total_extraction / total_demand) * 100, 2)
+
 
 def calculate_lzh_by_balance():
     lzh_by_balance = {}
@@ -339,13 +365,15 @@ def calculate_lzh_by_balance():
         )
     return lzh_by_balance
 
+
 # Function to update LZH gauges by balance area
 def update_balance_lzh_gauges():
     lzh_by_balance = calculate_lzh_by_balance()
     for area, gauge in balance_lzh_gauges.items():
         gauge.value = lzh_by_balance.get(area, 0)
 
-# create map and add attributes ### TODO: Check how to join with well active DF
+
+# create map and add attrobutes ### TODO: Check how to join with well active DF
 m = folium.Map(
     location=[52.38, 6.7], zoom_start=10
 )  # Adjust the center and zoom level as necessary
@@ -362,12 +390,14 @@ icon = folium.CustomIcon(
     icon_size=(30, 30),
 )
 
+
 colormap = branca.colormap.LinearColormap(
     ["#caf0f8", "#90e0ef", "#00b4d8", "#0077b6", "#03045e"],
     vmin=hexagons_filterd["Water Demand"].quantile(0.0),
     vmax=hexagons_filterd["Water Demand"].quantile(1),
     caption="Total water demand in Mm\u00b3/Year",
 )
+
 
 def update_layers():
     m = folium.Map(
@@ -402,6 +432,8 @@ def update_layers():
             "weight": 0.7,
         },
         popup=popup_hex,
+        #    tooltip=folium.GeoJsonTooltip(fields=["Balance Area"], aliases=["Balance Area:"]),
+        #    style_function=hexagons_filterd["style"]
     ).add_to(m)
 
     rn = folium.GeoJson(
@@ -418,6 +450,8 @@ def update_layers():
             "weight": 0.7,
         }, 
         show= False,
+        #    tooltip=folium.GeoJsonTooltip(fields=["Balance Area"], aliases=["Balance Area:"]),
+        #    style_function=hexagons_filterd["style"]
     ).add_to(m)
 
     ro = folium.GeoJson(
@@ -434,6 +468,8 @@ def update_layers():
             "weight": 0.7,
         },
         show= False,
+        #    tooltip=folium.GeoJsonTooltip(fields=["Balance Area"], aliases=["Balance Area:"]),
+        #    style_function=hexagons_filterd["style"]
     ).add_to(m)
 
     m.add_child(colormap)
@@ -445,6 +481,7 @@ def update_layers():
 def update_title(new_title):
     Box.title = new_title
 
+
 # Function to create Scenarios
 def Scenario1(event):
     demand_capita = 0.156*1.1
@@ -452,6 +489,7 @@ def Scenario1(event):
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
     df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
+    # update_year(event)
     update_indicators()  # Update the total demand indicator
     update_title("VITALENS - Autonumos Growth")
 
@@ -461,6 +499,7 @@ def Scenario2(event):
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
     df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
+    # update_year(event)
     update_indicators()  # Update the total demand indicator
     update_title("VITALENS - Accelerated Growth")
     
@@ -489,8 +528,12 @@ def Reset(event):
         "OPEX": wells["totOpex_m3"] * wells["Extraction_2023__Mm3_per_jr_"] * 1000000,
         "geometry": wells["geometry"],
     }
+    
+    # for index, row in active_wells_df.iterrows(): 
+    #     Well_slider.value = wellCurrent = row["Extraction_2023__Mm3_per_jr_"]
 )
     df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
+    # update_year(event)
     update_indicators()  # Update the total demand indicator
     update_title("VITALENS - Current Situation")
 
@@ -503,22 +546,77 @@ def update_indicators():
     natura_pane.value = calculate_affected_Natura()
     co2_pane.value= calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
-    update_balance_opex()
+    update_balance_opex
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
-    update_balance_lzh_gauges()
+    update_balance_lzh_gauges  # Add this line to update LZH gauges
     df_display.object = update_df_display()
     map_pane.object = update_layers()
+
 
 # Initialize a dictionary to hold the active state and slider references
 active_wells = {}
 
+
+# Setup Well Sliders
+# Sliders = []
+# for index, row in wells.iterrows():
+#     wellEnd = row["Permit__Mm3_per_jr_"]
+#     wellCurrent = row["Extraction_2023__Mm3_per_jr_"]
+#     wellName = row["Name"]
+#     Well_slider = pn.widgets.FloatSlider(
+#         name=wellName,
+#         start=0,
+#         end=wellEnd,
+#         step=0.1,
+#         value=wellCurrent,
+#         format=PrintfTickFormatter(format="%.2f Mm\u00b3/Year"),
+#         width=280,
+#         margin=(4, 10),
+#     )
+#     max_label = pn.pane.Str(
+#         f"Max: {wellEnd:.2f}", width=200, align="end"
+#     )  # Create a label for the maximum value
+#     min_label = pn.pane.Str(f"Min: {0:.2f}", width=200, align="start")
+
+#     # add Checkbox and listeners
+#     checkbox = pn.widgets.Checkbox(name="Active", value=True)
+
+#     checkbox.param.watch(
+#         lambda event, well_name=wellName: toggle_well(event, well_name), "value"
+#     )
+
+#     Well_slider.param.watch(
+#         lambda event, well_name=wellName: update_slider(event, well_name), "value"
+#     )
+
 miniBox_style = {
-    'background': '#f9f9f9',
-    'border': '0.7px solid',
-    'margin': '10px',
-    "box-shadow": '4px 2px 6px #2d3f76'
-}
+        'background': '#f9f9f9',
+        'border': '0.7px solid',
+        'margin': '10px',
+        "box-shadow": '4px 2px 6px #2d3f76'
+    }
+
+#     minMaxlabel = pn.Row(min_label, max_label, width=300)
+#     Sliders.append(pn.Column(checkbox, Well_slider, minMaxlabel, styles=miniBox_style))
+
+#     # Store the active state and slider reference
+#     active_wells[wellName] = {"active": checkbox.value, "value": Well_slider.value}
+#     wellsDF = pd.DataFrame(active_wells).T
+
+# Widgets for user interaction
+
+# SIDE BAR
+# Create a layout for years and buttons
+# year_selector = pn.widgets.IntInput(
+#     name="Which year do you want to calculate?",
+#     value=yearCal,
+#     step=1,
+#     start=2022,
+#     end=2035,
+#     width=300,
+# )
+# year_selector.param.watch(update_year, "value")
 
 # Setup Well Radio Buttons
 Radio_buttons = []
@@ -530,27 +628,52 @@ for index, row in wells.iterrows():
     radio_group = pn.widgets.RadioButtonGroup(
         name=wellName,
         options=options,
+        # inline=True,
+        # margin=(4, 10), 
         button_type='success',
         value="Current",
+        # stylesheets=[{'''
+        #     .bk-btn-group > button, .bk-input-group > button {
+        #     background-position: center;
+        #     font-weight: 100;
+        #     font-size: small;
+        #     line-height: 1;
+        #     padding: 5px 15px;
+        #     transition: background 0.8s;
+        #     'font-size': '10px',
+        #     'font-family': 'Barlow',
+        # }'''}],
     )
     # add Checkbox and listeners
     checkbox = pn.widgets.Checkbox(name="Active", value=True)
-    checkbox.param.watch(partial(toggle_well, well_name=wellName), "value")
-    radio_group.param.watch(partial(update_radio, well_name=wellName), "value")
+    checkbox.param.watch(
+        lambda event, well_name=wellName: toggle_well(event, well_name), "value"
+    ) 
+   
+    # Add callback for radio button change
+    radio_group.param.watch(lambda event, well_name=wellName: update_radio(event, well_name), "value")
     
-    NamePane = pn.pane.Str(update_well_Name(wellName), styles={
+    
+    NamePane=pn.pane.Str(update_well_Name(wellName), styles={
         'font-size': '10pt',
         'font-family': 'Lato',
-        'font-weight': 'bold'
-    })
+        'font-weight':  'bold'
+    }
+    )
+    # Radio_buttonsrow=pn.Row(radio_group)
     NameState = pn.Row(NamePane, pn.Spacer(), checkbox)
     Well_radioB.append(pn.Column(NameState, radio_group, styles=miniBox_style))
     
     # Store the active state and radio group reference along with the NamePane
     active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": NamePane}
-
+    
+    
+    
 # Create a layout for the radio buttons
 radio_layout = pn.Column(*Well_radioB, styles={'width': '100%'})
+
+
+
 
 Button1 = pn.widgets.Button(
     name='Autonomous growth', button_type="primary", width=300, margin=10
@@ -566,20 +689,27 @@ Button3 = pn.widgets.Button(
 )
 Button3.on_click(Reset)
 
-textB1 = pn.pane.HTML(
-    '<b>Scenario with demand increase of 10%</b>', width=300, align="start", styles={'font-family': "Barlow"}
-)
-textB2 = pn.pane.HTML(
-    '<b>Scenario with demand increase of 35%</b>', width=300, align="start", styles={'font-family': "Barlow"}
-)
+textB1 = pn.pane.HTML('''
+                      <b>Scenario with demand increase of 10%</b>'''
+                      , width=300, align="start", styles={ 'font-family': "Barlow",
+                                                          })
+textB2 = pn.pane.HTML('''
+                      <b>Scenario with demand increase of 35%</b>'''
+                      , width=300, align="start", styles={'font-family': "Barlow"})
 
-scenario_layout = pn.Column(textB1, Button1, textB2, Button2, Button3)
+# Create a layout for the sliders
+# slider_layout = pn.Column(*Sliders)
+scenario_layout = pn.Column(textB1,Button1, textB2, Button2, Button3)
 
+# Create a tab for the sidebar and others
 tabs = pn.Tabs(("Well Capacities", radio_layout), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
+# Convert the Folium map to a Panel pane
 map_pane = pn.pane.plot.Folium(m, sizing_mode="stretch_both")
 
+
+# Create an indicator for the total extraction
 total_extraction = pn.indicators.Number(
     name="Total Supply",
     value=calculate_total_extraction(),
@@ -588,6 +718,7 @@ total_extraction = pn.indicators.Number(
     title_size="18pt",
 )
 
+# Indicator total OPEX
 total_opex = pn.indicators.Number(
     name="Total OPEX",
     value=calculate_total_OPEX(),
@@ -597,6 +728,7 @@ total_opex = pn.indicators.Number(
     align="center",
 )
 
+# Create indicators for OPEX by balance area
 balance_opex = calculate_total_OPEX_by_balance()
 balance_opex_indicators = {
     balance: pn.indicators.Number(
@@ -655,9 +787,14 @@ drought_pane = pn.indicators.Number(
     title_size="18pt",
 )
 
+
+# Create a Markdown pane to display the DataFrame BACKEND
 df_display = pn.pane.Markdown(update_df_display())
+
+# Create a Markdown pane to display the DataFrame BACKEND
 df_Hexagons = pn.pane.DataFrame(hexagons_filterd.head(), name="Hexagons data")
 
+# Create indicator for Total Water demand
 total_demand = pn.indicators.Number(
     name="Total Water Demand",
     value=calculate_total_Demand(),
@@ -666,12 +803,13 @@ total_demand = pn.indicators.Number(
     title_size="18pt",
 )
 
+# create Indicator for LEVERENSZEKERHEID
 lzh = pn.indicators.Gauge(
     name="Leveringszekerheid",
     value=calculate_lzh(),
     bounds=(50, 150),
     format="{value} %",
-    colors=[(0.5, "red"), (0.7, "orange "),(0.9, "green"), (1, "Lightblue")],
+    colors=[(0.5, "red"), (0.7,"orange "),(0.9, "green"), (1, "Lightblue")],
     custom_opts={
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
@@ -680,7 +818,10 @@ lzh = pn.indicators.Gauge(
 )
 lzh.param.watch(update_indicators, "value")
 
+# Create gauges for LZH by balance area
 balance_lzh_gauges = {}
+
+
 balance_lzh_values = calculate_lzh_by_balance()
 for area, value in balance_lzh_values.items():
     gauge = pn.indicators.Gauge(
@@ -699,11 +840,13 @@ for area, value in balance_lzh_values.items():
     )
     balance_lzh_gauges[area] = gauge
 
+# create layout for LZH
 lzh_Balance = pn.template.SlidesTemplate(
     title="Leveringszekerheid",
     logo="https://raw.githubusercontent.com/holoviz/panel/main/doc/_static/logo_stacked.png",
 )
 lzh_layout = pn.GridSpec(sizing_mode="stretch_width", align="center", height=400)
+
 
 lzh_layout[0:1, 0] = lzh
 balance_lzh_layout = pn.GridSpec(sizing_mode="stretch_width")
@@ -716,10 +859,13 @@ balance_lzh_layout[1, 0] = pn.Row(
 
 lzh_layout[0, 1] = balance_lzh_layout
 
+
+# create layout for OPEX
 opexTabs = pn.Tabs(
     total_opex, *balance_opex_indicators.values(), align=("center", "center")
 )
 
+# create layout for two items
 Supp_dem = pn.Row(
     total_extraction, pn.Spacer(width=50), total_demand, sizing_mode="stretch_width"
 )
@@ -738,16 +884,31 @@ main2 = pn.Row(
     excess_cap,
     pn.Spacer(width=70),
     own_pane,
+    # height=200,
     sizing_mode="stretch_both",
+    
 )
 
+
+
+# FULL PAGE LAYOUT
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
     logo="https://uavonline.nl/wp-content/uploads/2020/11/vitens-logo-1.png",
     sidebar=tabs,
     main=[main1, main2],
+    # accent_base_color= "#3C549D",
+    # background_color = "#F8F7F4",
+    # header_background = "#2D2D2A",
+    # corner_radius = 3,
+    # font_url = "https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap",
+    # busy_indicator=pn.indicators.BooleanIndicator(value=True),
+    # css_files=[custom_css_path],
+    # prevent_collision=True
 )
 
+
+# Function to update the total extraction value
 def total_extraction_update():
     total_extraction.value = calculate_total_extraction()
     df_display.object = update_df_display()
@@ -758,9 +919,11 @@ def total_extraction_update():
     update_indicators()
     natura_pane.value = calculate_affected_Natura()
     map_pane.object = update_layers()
-    co2_pane.value = calculate_total_CO2_cost()
+    co2_pane.value= calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
 
+
+# Initial calculation of total extraction
 total_extraction_update()
 
 Box.servable()
