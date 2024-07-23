@@ -3,7 +3,6 @@ import pandas as pd
 import panel as pn
 import numpy as np
 import fiona
-import pydeck as pdk
 from bokeh.models.formatters import PrintfTickFormatter
 import folium
 from folium.plugins import MarkerCluster
@@ -11,7 +10,7 @@ from folium.plugins import Search
 from shapely.geometry import shape, Polygon
 import branca
 from functools import partial
-import json
+
 
 # Styling
 globalCss_route= "Stylesheet.css"
@@ -96,7 +95,7 @@ pn.extension("echarts")
 pn.extension(
     "tabulator", "ace", css_files=["https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"]
 )
-pn.extension('deckgl')
+
 
 
 # Load the GeoPackage file
@@ -418,7 +417,7 @@ def calculate_centroid(coordinates):
     polygon = Polygon(coordinates)
     return polygon.centroid.y, polygon.centroid.x
 
- # Function to Display map   
+# Function to Display map   
 def update_layers():
     m = folium.Map(
         location=[52.37, 6.7], zoom_start=10,
@@ -495,9 +494,9 @@ def update_layers():
         style_function=lambda x: {
             "fillColor": "transparent",
             "color": "#ce9ad6",
-            "weight": 2
+            "weight": 3
         },
-        show=False,
+        show=True,
         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
     ).add_to(m)
     
@@ -578,6 +577,7 @@ def update_indicators():
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
     update_balance_lzh_gauges()
+    map_pane.object=update_layers()
     
 
 # Initialize a dictionary to hold the active state and slider references
@@ -895,7 +895,7 @@ def total_extraction_update():
     update_balance_lzh_gauges()
     update_indicators()
     natura_pane.value = calculate_affected_Natura()
-    # map_pane.object = update_layers()
+    map_pane.object = update_layers()
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
 
