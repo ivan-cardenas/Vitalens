@@ -3,60 +3,101 @@ import pandas as pd
 import panel as pn
 import numpy as np
 import fiona
+import pydeck as pdk
 from bokeh.models.formatters import PrintfTickFormatter
 import folium
 from folium.plugins import MarkerCluster
 from folium.plugins import Search
+from shapely.geometry import shape, Polygon
 import branca
 from functools import partial
+import json
 
 # Styling
-ACCENT = "#3c549d"
-LOGO = "https://assets.holoviz.org/panel/tutorials/matplotlib-logo.png"
-TITLE = "VITALENS"
-
+globalCss_route= "Stylesheet.css"
 cssStyle = ['''
-@import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
-    
-:host, :root { 
-        --design-primary-color: #3C549D; 
-        --design-secondary-color: #B5D99C; 
-        --design-primary-text-color: #F8F7F4; 
-        --design-secondary-text-color: #2D2D2A;
-        --bokeh-base-font: "Barlow", sans-serif, Verdana;
+/* Import Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+
+
+:host,
+:root {
+  --design-primary-color: #151931 !important;
+  --design-secondary-color: #00B893 !important;
+  --design-primary-text-color: #f2f2ed !important;
+  --design-secondary-text-color: #151931 !important;
+  --bokeh-base-font: "Barlow", sans-serif, Verdana !important;
+  --mdc-typography-font-family: "Barlow", sans-serif, Verdana !important;
+  --panel-primary-color: #151931 !important;
+  --panel-background-color: #f2f2ed !important;
+  --panel-on-background-color: #151931 !important;
 }
 
-.mdc-typography {
-    font-family: "Barlow";
+#sidebar, #main {
+    background-color: #F2F2ED !important;
 }
 
-.bk-btn-group{
-    flex-wrap: wrap;
+hr.dashed {
+  border-top: 1px dashed;
+  border-bottom: none;
 }
 
-.bk-btn-group .bk-btn {
-    background-position: center;
-    font-weight: 100;
-    font-size: small;
-    line-height: 1;
-    padding: 5px 10px;
-    margin: 3px;
-    transition: background 0.8s;
-    width: fit-content;
-    border-radius: 0.3em !important;
-  }
-  '''            
+.title {
+  font-weight: 600 !important;
+}
+.bk-btn {
+  border-radius: 0.5em !important;
+}
+
+.bk-btn bk-btn-primary {
+    font-size: normal !important;
+}
+
+.bk-btn-group {
+  height: 100%;
+  display: flex;
+  flex-wrap: wrap !important;
+  align-items: center;
+}
+
+
+
+.bk-btn-primary{
+    font-size: normal !important;
+}
+
+.bk-btn-success{
+  background-position: center;
+  font-weight: 400 !important;
+  font-size: small !important;
+  line-height: 1;
+  margin: 3px 3px; 
+  padding: 5px 10px !important;
+  transition: background 0.8s;
+  width: fit-content;
+}
+
+.accordion-header button{
+    color: #151931;
+    background-color: #B4BFE4;
+}
+
+            
+'''
 ]
 
 # Initialize extensions
+pn.config.global_css=cssStyle
+pn.config.css_files=cssStyle
+pn.config.loading_spinner='petal'
 pn.extension(sizing_mode="stretch_width")
 pn.extension("plotly")
 pn.extension("echarts")
-pn.extension(design='material', css_files=cssStyle)
 pn.extension(
     "tabulator", "ace", css_files=["https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"]
 )
-# Define the path to your custom CSS file
+pn.extension('deckgl')
+
 
 # Load the GeoPackage file
 gpkg_file = "./Assets/Thematic_data.gpkg"
@@ -144,6 +185,8 @@ hexagons_filterd = gpd.GeoDataFrame(
         "geometry": hexagons["geometry"],
     }
 )
+
+balance_areas= hexagons_filterd.dissolve(by="Balance Area", as_index=False)
 
 # Function to calculate the total extraction based on active wells
 def calculate_total_extraction():
@@ -235,6 +278,7 @@ def update_df_display():
 def toggle_well(event, well_name):
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Active"] = event.new
     update_indicators()
+    # map_pane.object = update_layers()
 
 # Function to update the slider value in the DataFrame
 def update_slider(event, well_name):
@@ -275,13 +319,11 @@ def update_radio(event, well_name):
     name_pane = active_wells[well_name]["name_pane"]
     name_pane.object = update_well_Name(well_name)
     update_indicators()
-    
-    
+
 
 def update_well_Name(well_name):
     current_extraction = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
-    balanceArea = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
-    return f"{well_name} {current_extraction:.2f}"
+    return f"{current_extraction:.2f} Mm\u00b3/yr"
 
 # Function to update the yearCal variable
 def update_year(event):
@@ -346,12 +388,95 @@ def update_balance_lzh_gauges():
         gauge.value = lzh_by_balance.get(area, 0)
 
 # create map and add attributes ### TODO: Check how to join with well active DF
-m = folium.Map(
-    location=[52.38, 6.7], zoom_start=10
-)  # Adjust the center and zoom level as necessary
+# m = folium.Map(
+#     location=[52.38, 6.7], zoom_start=10
+# )  # Adjust the center and zoom level as necessary
+
+
+# Normalize or scale a property for height
+def normalize_height(value, min_value, max_value, target_min, target_max):
+    if value == None:
+        return 0
+    else: 
+        return target_min + (value - min_value) / (max_value - min_value) * (target_max - target_min)
+
+# format data for use in pydeck
+hexagons_4326=hexagons_filterd.to_crs(epsg=4326)
+wells_4326=active_wells_df.to_crs(epsg=4326)
+
+hexagons_JSON = json.loads(hexagons_4326.to_json())
+wells_JSON = json.loads(wells_4326.to_json())
+print(hexagons_JSON['features'][0])
+
+
+
+# Example property scaling
+min_height = 100
+max_height = 2000
+min_property = hexagons_4326['Water Demand'].min()
+max_property = hexagons_4326['Water Demand'].max()
+
+# Add normalized height to GeoJSON data
+for feature in hexagons_JSON['features']:
+    property_value = feature['properties']['Water Demand']
+    feature['properties']['elevation'] = normalize_height(property_value, min_property, max_property, min_height, max_height)
+
+
+
+
+# Define DeckGL layers
+hexagon_layer = pdk.Layer(
+    "GeoJsonLayer",
+    hexagons_JSON,
+    # get_polygon="geometry.coordinates",
+    get_fill_color="[0, (1 - properties['Water Demand']) * 123, 167, 240]",
+    pickable=True,
+    extruded=True,
+    stroked=True,
+    get_line_color='[255,255,255]',
+    get_elevation="properties['elevation']"
+)
+
+well_layer = pdk.Layer(
+    "ScatterplotLayer",
+    wells_JSON,
+    get_position="[geometry.coordinates[0], geometry.coordinates[1]]",
+    get_fill_color="[200, 30, 0, 160]",
+    get_radius=400,
+    pickable=True,
+)
+
+
+# Update the map initialization to use DeckGL
+initial_view_state = pdk.ViewState(
+    latitude=52.38,
+    longitude=6.7,
+    zoom=10,
+    pitch=50,
+)
+
+# define the tool tip for Map
+tooltip = ""
+tooltip += "<div style=''>Well: {Name}</div>"
+tooltip += "<div style=''>Production: {Value}</div>"
+# tooltip += "<div style=''>Well: {properties.Name}</div>"
+# tooltip += "<div style=''>Well: {properties.Name}</div>"
+
+deckgl_map = pdk.Deck(
+    layers=[well_layer,hexagon_layer],
+    initial_view_state=initial_view_state,
+    tooltip={
+        'html': tooltip,
+        'style': {
+            'color': 'white'
+        }
+    }
+)
+
+
 popup_well = folium.GeoJsonPopup(
     fields=["Name", "Balance area", "Value"],
-    aliases=["Well Name", "Balance Area", "Extraction in Mm\u00b3/Year"],
+    aliases=["Well Name", "Balance Area", "Extraction in Mm\u00b3/yr"],
 )
 popup_hex = folium.GeoJsonPopup(
     fields=["Balance Area", "Water Demand", "Current Pop", "Type"],
@@ -366,15 +491,22 @@ colormap = branca.colormap.LinearColormap(
     ["#caf0f8", "#90e0ef", "#00b4d8", "#0077b6", "#03045e"],
     vmin=hexagons_filterd["Water Demand"].quantile(0.0),
     vmax=hexagons_filterd["Water Demand"].quantile(1),
-    caption="Total water demand in Mm\u00b3/Year",
+    caption="Total water demand in Mm\u00b3/yr",
 )
 
-def update_layers():
-    m = folium.Map(
-        location=[52.37, 6.7], zoom_start=10
-    )  # Adjust the center and zoom level as necessary
-    active = active_wells_df[active_wells_df["Active"]]
+# Function to calculate the centroid of a polygon
+def calculate_centroid(coordinates):
+    polygon = Polygon(coordinates)
+    return polygon.centroid.y, polygon.centroid.x
 
+ # Function to Display map   
+# def update_layers():
+    m = folium.Map(
+        location=[52.37, 6.7], zoom_start=10,
+        tiles="Cartodb Positron"
+    )  # Adjust the center and zoom level as necessary
+    active = active_wells_df[active_wells_df["Active"]==True]
+    
     folium.GeoJson(
         active,
         name="Wells",
@@ -388,7 +520,7 @@ def update_layers():
         ),
     ).add_to(m)
 
-    h = folium.GeoJson(
+    hex = folium.GeoJson(
         hexagons_filterd,
         name="Hexagons",
         style_function=lambda x: {
@@ -404,7 +536,9 @@ def update_layers():
         popup=popup_hex,
     ).add_to(m)
 
-    rn = folium.GeoJson(
+    m.add_child(colormap)
+
+    folium.GeoJson(
         hexagons_filterd,
         name="Natura2000 Restricted Area",
         style_function=lambda x: {
@@ -420,7 +554,7 @@ def update_layers():
         show= False,
     ).add_to(m)
 
-    ro = folium.GeoJson(
+    folium.GeoJson(
         hexagons_filterd,
         name="Restricted NNN",
         style_function=lambda x: {
@@ -435,15 +569,27 @@ def update_layers():
         },
         show= False,
     ).add_to(m)
-
-    m.add_child(colormap)
+    
+    folium.GeoJson(
+        balance_areas,
+        name="Balance Areas",
+        style_function=lambda x: {
+            "fillColor": "transparent",
+            "color": "#ce9ad6",
+            "weight": 2
+        },
+        show=False,
+        tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
+    ).add_to(m)
+    
     folium.LayerControl().add_to(m)
 
     return m
 
 # Function to update the title of the Box
 def update_title(new_title):
-    Box.title = new_title
+    content = '## ' + new_title
+    app_title.object = content
 
 # Function to create Scenarios
 def Scenario1(event):
@@ -451,18 +597,24 @@ def Scenario1(event):
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-    df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
-    update_indicators()  # Update the total demand indicator
     update_title("VITALENS - Autonumos Growth")
+    update_indicators()  # Update the total demand indicator
+    
 
 def Scenario2(event):
     demand_capita = 0.156*1.35
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-    df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
-    update_indicators()  # Update the total demand indicator
     update_title("VITALENS - Accelerated Growth")
+    update_indicators()  # Update the total demand indicator
+    
+    
+def Scenario3(event):
+    active_wells_df.loc[active_wells_df["Max_permit"] <= 5, "Active"] = False
+    update_title("VITALENS - Closed Wells")
+    update_indicators()
+    
     
 def Reset(event):
     demand_capita = 0.156
@@ -507,18 +659,26 @@ def update_indicators():
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
     update_balance_lzh_gauges()
-    df_display.object = update_df_display()
-    map_pane.object = update_layers()
+    
 
 # Initialize a dictionary to hold the active state and slider references
 active_wells = {}
 
 miniBox_style = {
-    'background': '#f9f9f9',
+    'background': '#e9e9e1',
     'border': '0.7px solid',
     'margin': '10px',
-    "box-shadow": '4px 2px 6px #2d3f76'
+    "box-shadow": '4px 2px 6px #2a407e',
+    "display": "flex"
 }
+
+buttonGroup_style={
+                'flex-wrap': 'wrap',
+                'display': 'flex'
+            }
+
+# Initialize a dictionary to hold the balance area layouts
+balance_area_buttons = {}
 
 # Setup Well Radio Buttons
 Radio_buttons = []
@@ -527,30 +687,46 @@ options = ["-10%", "-20%", "Current", "+10%", "+20%", "Maximum Permit", "Agreeme
 for index, row in wells.iterrows():
     wellName = row["Name"]
     current_value = row["Extraction_2023__Mm3_per_jr_"]
+    balance_area = row["Balansgebied"]
     radio_group = pn.widgets.RadioButtonGroup(
         name=wellName,
         options=options,
         button_type='success',
-        value="Current",
+        value="Current"
     )
+    
     # add Checkbox and listeners
     checkbox = pn.widgets.Checkbox(name="Active", value=True)
     checkbox.param.watch(partial(toggle_well, well_name=wellName), "value")
     radio_group.param.watch(partial(update_radio, well_name=wellName), "value")
     
-    NamePane = pn.pane.Str(update_well_Name(wellName), styles={
-        'font-size': '10pt',
-        'font-family': 'Lato',
-        'font-weight': 'bold'
+    NameP = pn.pane.Str(wellName, styles={
+        'font-size': "14px",
+        'font-family': "Barlow",
+        'font-weight': 'bold',
     })
-    NameState = pn.Row(NamePane, pn.Spacer(), checkbox)
-    Well_radioB.append(pn.Column(NameState, radio_group, styles=miniBox_style))
+    
+    NamePane = pn.pane.Str(update_well_Name(wellName), styles={
+        'font-family': 'Roboto'
+    })
+    NameState = pn.Row(NameP, pn.Spacer(), checkbox)
+    Well_radioB = pn.Column(NameState, NamePane, radio_group,
+                            styles=miniBox_style)
+    
+    # Add the well layout to the appropriate balance area layout
+    if balance_area not in balance_area_buttons:
+        balance_area_buttons[balance_area] = []
+    balance_area_buttons[balance_area].append(Well_radioB)
+    
     
     # Store the active state and radio group reference along with the NamePane
     active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": NamePane}
 
 # Create a layout for the radio buttons
-radio_layout = pn.Column(*Well_radioB, styles={'width': '100%'})
+radio_layout = pn.Accordion(styles={'width': '97%', 'color':'#151931'})
+for balance_area, layouts in balance_area_buttons.items():
+    balance_area_column = pn.Column(*layouts)
+    radio_layout.append((balance_area, balance_area_column))
 
 Button1 = pn.widgets.Button(
     name='Autonomous growth', button_type="primary", width=300, margin=10
@@ -562,39 +738,56 @@ Button2 = pn.widgets.Button(
 Button2.on_click(Scenario2)
 
 Button3 = pn.widgets.Button(
+    name='Close Wells', button_type="primary", width=300, margin=10
+)
+Button3.on_click(Scenario3)
+
+
+ButtonR = pn.widgets.Button(
     name='Reset', button_type='warning', width=300, margin=10
 )
-Button3.on_click(Reset)
+ButtonR.on_click(Reset)
 
 textB1 = pn.pane.HTML(
-    '<b>Scenario with demand increase of 10%</b>', width=300, align="start", styles={'font-family': "Barlow"}
+    '''
+    <h3 align= "center"> Scenarios</h3><hr>
+    <b>Scenario with demand increase of 10%</b>''', width=300, align="start"
 )
 textB2 = pn.pane.HTML(
-    '<b>Scenario with demand increase of 35%</b>', width=300, align="start", styles={'font-family': "Barlow"}
+    '<b>Scenario with demand increase of 35%</b>', width=300, align="start"
+)
+textB3 = pn.pane.HTML(
+    '''<hr class="dashed"><h3 align= "center"> Measures </h3> <hr>
+    <b>Close down all well locations with production less than 5Mm\u00b3/yr</b>''', width=300, align="start", styles={}
 )
 
-scenario_layout = pn.Column(textB1, Button1, textB2, Button2, Button3)
+scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, ButtonR)
 
 tabs = pn.Tabs(("Well Capacities", radio_layout), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
-map_pane = pn.pane.plot.Folium(m, sizing_mode="stretch_both")
+# map_pane = pn.pane.plot.Folium(m, sizing_mode="stretch_both")
+map_pane = pn.pane.DeckGL(deckgl_map, sizing_mode="stretch_both")
 
 total_extraction = pn.indicators.Number(
     name="Total Supply",
     value=calculate_total_extraction(),
-    format="{value:.2f} Mm\u00b3/Year",
+    format="{value:.2f} Mm\u00b3/yr",
+    default_color='#3850a0',
     font_size="28pt",
     title_size="18pt",
+    sizing_mode="stretch_width"
 )
 
 total_opex = pn.indicators.Number(
     name="Total OPEX",
     value=calculate_total_OPEX(),
-    format="{value:0,.2f} M\u20AC/Year",
+    format="{value:0,.2f} M\u20AC/yr",
+    default_color='#3850a0',
     font_size="28pt",
     title_size="18pt",
     align="center",
+    sizing_mode="stretch_width"
 )
 
 balance_opex = calculate_total_OPEX_by_balance()
@@ -602,7 +795,8 @@ balance_opex_indicators = {
     balance: pn.indicators.Number(
         name=f"OPEX {balance}",
         value=value,
-        format="{value:0,.2f} M\u20AC/Year",
+        format="{value:0,.2f} M\u20AC/yr",
+        default_color='#3850a0',
         font_size="28pt",
         title_size="18pt",
         align="center",
@@ -613,46 +807,56 @@ balance_opex_indicators = {
 excess_cap = pn.indicators.Number(
     name="Excess Capacity",
     value=calculate_available(),
-    format="{value:0.2f} Mm\u00b3/Year",
-    font_size="28pt",
-    title_size="18pt",
+    format="{value:0.2f} Mm\u00b3/yr",
+    default_color='#3850a0',
+    font_size="20pt",
+    title_size="12pt",
     align="center",
+    sizing_mode="stretch_width"
 )
 
 own_pane = pn.indicators.Number(
     name="Landownership",
     value=calculate_ownership(),
     format="{value:0.2f} %",
-    font_size="28pt",
-    title_size="18pt",
+    default_color='#3850a0',
+    font_size="20pt",
+    title_size="12pt",
     align="center",
-    colors=[(75, "red"), (85, "gold"), (100, "green")],
+    colors=[(75, "#F19292"), (85, "#F6D186"), (100, "#CBE2B0")],
+    sizing_mode="stretch_width"
 )
 
 natura_pane = pn.indicators.Number(
     name="Aproximate Natura 2000 \n Affected area",
     value=calculate_affected_Natura(),
     format="{value:0.2f} Ha",
-    font_size="28pt",
-    title_size="18pt",
+    default_color='#3850a0',
+    font_size="20pt",
+    title_size="12pt",
     align="center",
-    sizing_mode="stretch_width"
+    sizing_mode="stretch_width",
+    styles = {
+        'font-family': "Roboto"
+    }
 )
 
 co2_pane = pn.indicators.Number(
     name="CO\u2028 Emmision Cost",
     value=calculate_total_CO2_cost(),
-    format="{value:0,.2f} M\u20AC/Year",
-    font_size="28pt",
-    title_size="18pt",
+    format="{value:0,.2f} M\u20AC/yr",
+    default_color='#3850a0',
+    font_size="20pt",
+    title_size="12pt",
 )
 
 drought_pane = pn.indicators.Number(
     name="Drought Damage Cost",
     value=calculate_total_Drought_cost(),
-    format="{value:0,.2f} M\u20AC/Year",
-    font_size="28pt",
-    title_size="18pt",
+    format="{value:0,.2f} M\u20AC/yr",
+    default_color='#3850a0',
+    font_size="20pt",
+    title_size="12pt",
 )
 
 df_display = pn.pane.Markdown(update_df_display())
@@ -661,17 +865,19 @@ df_Hexagons = pn.pane.DataFrame(hexagons_filterd.head(), name="Hexagons data")
 total_demand = pn.indicators.Number(
     name="Total Water Demand",
     value=calculate_total_Demand(),
-    format="{value:0,.2f} Mm\u00b3/Year",
+    format="{value:0,.2f} Mm\u00b3/yr",
     font_size="28pt",
     title_size="18pt",
+    default_color='#3850a0',
+    sizing_mode="stretch_width"
 )
 
 lzh = pn.indicators.Gauge(
     name="Leveringszekerheid",
     value=calculate_lzh(),
-    bounds=(50, 150),
+    bounds=(0, 150),
     format="{value} %",
-    colors=[(0.5, "red"), (0.7, "orange "),(0.9, "green"), (1, "Lightblue")],
+    colors=[(0.66, "#F19292"), (0.8, "#F6D186"),(0.9, "#CBE2B0"), (1, "#bee3db")],
     custom_opts={
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
@@ -724,28 +930,41 @@ Supp_dem = pn.Row(
     total_extraction, pn.Spacer(width=50), total_demand, sizing_mode="stretch_width"
 )
 
-Env_pane = pn.Column(co2_pane, drought_pane)
+Env_pane = pn.Column(co2_pane, drought_pane, sizing_mode="scale_width")
 
 main1 = pn.GridSpec(sizing_mode="stretch_both")
 main1[0, 0] = pn.Row(map_pane)
-main1[0, 1] = pn.Column(lzh, Supp_dem, opexTabs, sizing_mode="stretch_both")
+
 
 main2 = pn.Row(
     natura_pane,
-    pn.Spacer(width=100),
+
     Env_pane,
-    pn.Spacer(width=100),
+
     excess_cap,
-    pn.Spacer(width=70),
-    own_pane,
-    sizing_mode="stretch_both",
+    sizing_mode="scale_width",
+    scroll=True
 )
+
+main1[0, 1] = pn.Column(lzh, Supp_dem, opexTabs, main2, sizing_mode="stretch_width")
+
+
+# Create a dynamic title
+app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
+    "text-align": "right",
+    "color": "#00B893"
+})
 
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
     logo="https://uavonline.nl/wp-content/uploads/2020/11/vitens-logo-1.png",
     sidebar=tabs,
-    main=[main1, main2],
+    main=[app_title, main1],
+    # background_color = '#f2f2ed',
+    # neutral_color='#151931',
+    # accent_base_color= '#3850a0',
+    header_background= '#3850a0',
+    header_color= '#f2f2ed'
 )
 
 def total_extraction_update():
@@ -757,7 +976,7 @@ def total_extraction_update():
     update_balance_lzh_gauges()
     update_indicators()
     natura_pane.value = calculate_affected_Natura()
-    map_pane.object = update_layers()
+    # map_pane.object = update_layers()
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
 
