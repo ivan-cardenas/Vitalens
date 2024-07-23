@@ -413,7 +413,7 @@ colormap = branca.colormap.LinearColormap(
     vmin=hexagons_filterd["Water Demand"].quantile(0.0),
     vmax=hexagons_filterd["Water Demand"].quantile(1),
     caption="Total water demand in Mm\u00b3/yr",
-)
+) 
 
 # Function to calculate the centroid of a polygon
 def calculate_centroid(coordinates):
