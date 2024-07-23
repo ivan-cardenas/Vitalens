@@ -401,49 +401,32 @@ def normalize_height(value, min_value, max_value, target_min, target_max):
         return target_min + (value - min_value) / (max_value - min_value) * (target_max - target_min)
 
 # format data for use in pydeck
-hexagons_4326=hexagons_filterd.to_crs(epsg=4326)
-wells_4326=active_wells_df.to_crs(epsg=4326)
-
-hexagons_JSON = json.loads(hexagons_4326.to_json())
-wells_JSON = json.loads(wells_4326.to_json())
-print(hexagons_JSON['features'][0])
-
-
-
-# Example property scaling
-min_height = 100
-max_height = 2000
-min_property = hexagons_4326['Water Demand'].min()
-max_property = hexagons_4326['Water Demand'].max()
-
-# Add normalized height to GeoJSON data
-for feature in hexagons_JSON['features']:
-    property_value = feature['properties']['Water Demand']
-    feature['properties']['elevation'] = normalize_height(property_value, min_property, max_property, min_height, max_height)
-
-
-
+hexagons_4326=json.loads(hexagons_filterd.to_json(to_wgs84=True))
+wells_4326=json.loads(active_wells_df.to_json(to_wgs84=True))
+print(hexagons_4326)
 
 # Define DeckGL layers
 hexagon_layer = pdk.Layer(
     "GeoJsonLayer",
-    hexagons_JSON,
+    hexagons_4326,
     # get_polygon="geometry.coordinates",
     get_fill_color="[0, (1 - properties['Water Demand']) * 123, 167, 240]",
     pickable=True,
     extruded=True,
     stroked=True,
     get_line_color='[255,255,255]',
-    get_elevation="properties['elevation']"
+    get_elevation="properties['Water Demand']*2000"
 )
 
 well_layer = pdk.Layer(
-    "ScatterplotLayer",
-    wells_JSON,
+    "GeoJsonLayer",
+    wells_4326,
     get_position="[geometry.coordinates[0], geometry.coordinates[1]]",
     get_fill_color="[200, 30, 0, 160]",
     get_radius=400,
     pickable=True,
+    extruded=True,
+    get_elevation="properties.value*5000"
 )
 
 
@@ -500,91 +483,98 @@ def calculate_centroid(coordinates):
     return polygon.centroid.y, polygon.centroid.x
 
  # Function to Display map   
-# def update_layers():
-    m = folium.Map(
-        location=[52.37, 6.7], zoom_start=10,
-        tiles="Cartodb Positron"
-    )  # Adjust the center and zoom level as necessary
-    active = active_wells_df[active_wells_df["Active"]==True]
+# # def update_layers():
+#     m = folium.Map(
+#         location=[52.37, 6.7], zoom_start=10,
+#         tiles="Cartodb Positron"
+#     )  # Adjust the center and zoom level as necessary
+#     active = active_wells_df[active_wells_df["Active"]==True]
     
-    folium.GeoJson(
-        active,
-        name="Wells",
-        zoom_on_click=True,
-        popup=popup_well,
-        tooltip=folium.GeoJsonTooltip(fields=["Name"], aliases=["Well Name:"]),
-        marker=folium.Marker(
-            icon=folium.Icon(
-                icon_color="#F9F6EE", icon="arrow-up-from-ground-water", prefix="fa"
-            )
-        ),
-    ).add_to(m)
+#     folium.GeoJson(
+#         active,
+#         name="Wells",
+#         zoom_on_click=True,
+#         popup=popup_well,
+#         tooltip=folium.GeoJsonTooltip(fields=["Name"], aliases=["Well Name:"]),
+#         marker=folium.Marker(
+#             icon=folium.Icon(
+#                 icon_color="#F9F6EE", icon="arrow-up-from-ground-water", prefix="fa"
+#             )
+#         ),
+#     ).add_to(m)
 
-    hex = folium.GeoJson(
-        hexagons_filterd,
-        name="Hexagons",
-        style_function=lambda x: {
-            "fillColor": (
-                colormap(x["properties"]["Water Demand"])
-                if x["properties"]["Water Demand"] is not None
-                else "transparent"
-            ),
-            "color": "darkgray",
-            "fillOpacity": 0.8,
-            "weight": 0.7,
-        },
-        popup=popup_hex,
-    ).add_to(m)
+#     hex = folium.GeoJson(
+#         hexagons_filterd,
+#         name="Hexagons",
+#         style_function=lambda x: {
+#             "fillColor": (
+#                 colormap(x["properties"]["Water Demand"])
+#                 if x["properties"]["Water Demand"] is not None
+#                 else "transparent"
+#             ),
+#             "color": "darkgray",
+#             "fillOpacity": 0.8,
+#             "weight": 0.7,
+#         },
+#         popup=popup_hex,
+#     ).add_to(m)
 
-    m.add_child(colormap)
+#     m.add_child(colormap)
 
-    folium.GeoJson(
-        hexagons_filterd,
-        name="Natura2000 Restricted Area",
-        style_function=lambda x: {
-            "fillColor": (
-                "darkred"
-                if x["properties"]["Type"] == "Restricted Natura2000"
-                else "transparent"
-            ),
-            "color": "darkgray",
-            "fillOpacity": 0.8,
-            "weight": 0.7,
-        }, 
-        show= False,
-    ).add_to(m)
+#     folium.GeoJson(
+#         hexagons_filterd,
+#         name="Natura2000 Restricted Area",
+#         style_function=lambda x: {
+#             "fillColor": (
+#                 "darkred"
+#                 if x["properties"]["Type"] == "Restricted Natura2000"
+#                 else "transparent"
+#             ),
+#             "color": "darkgray",
+#             "fillOpacity": 0.8,
+#             "weight": 0.7,
+#         }, 
+#         show= False,
+#     ).add_to(m)
 
-    folium.GeoJson(
-        hexagons_filterd,
-        name="Restricted NNN",
-        style_function=lambda x: {
-            "fillColor": (
-                "#f9aaa2"
-                if x["properties"]["Type"] == "Restricted Other"
-                else "transparent"
-            ),
-            "color": "darkgray",
-            "fillOpacity": 0.8,
-            "weight": 0.7,
-        },
-        show= False,
-    ).add_to(m)
+#     folium.GeoJson(
+#         hexagons_filterd,
+#         name="Restricted NNN",
+#         style_function=lambda x: {
+#             "fillColor": (
+#                 "#f9aaa2"
+#                 if x["properties"]["Type"] == "Restricted Other"
+#                 else "transparent"
+#             ),
+#             "color": "darkgray",
+#             "fillOpacity": 0.8,
+#             "weight": 0.7,
+#         },
+#         show= False,
+#     ).add_to(m)
     
-    folium.GeoJson(
-        balance_areas,
-        name="Balance Areas",
-        style_function=lambda x: {
-            "fillColor": "transparent",
-            "color": "#ce9ad6",
-            "weight": 2
-        },
-        show=False,
-        tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
-    ).add_to(m)
+#     folium.GeoJson(
+#         balance_areas,
+#         name="Balance Areas",
+#         style_function=lambda x: {
+#             "fillColor": "transparent",
+#             "color": "#ce9ad6",
+#             "weight": 2
+#         },
+#         show=False,
+#         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
+#     ).add_to(m)
     
-    folium.LayerControl().add_to(m)
+#     folium.LayerControl().add_to(m)
 
-    return m
+#     return m
+
+def update_layers():
+    # Update the pydeck layers
+    well_layer.data = active_wells_df[active_wells_df["Active"]==True].to_json(to_wgs84=True)  # Filter active wells
+    hexagon_layer.data = hexagons_filterd.to_json(to_wgs84=True)
+
+    return deckgl_map
 
 # Function to update the title of the Box
 def update_title(new_title):
@@ -976,7 +966,7 @@ def total_extraction_update():
     update_balance_lzh_gauges()
     update_indicators()
     natura_pane.value = calculate_affected_Natura()
-    # map_pane.object = update_layers()
+    #map_pane.object = update_layers()
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
 
