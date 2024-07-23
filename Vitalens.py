@@ -10,6 +10,8 @@ from folium.plugins import Search
 from shapely.geometry import shape, Polygon
 import branca
 from functools import partial
+import ipyleaflet as ipy
+from ipyleaflet import Map, basemaps
 
 
 # Styling
@@ -95,6 +97,7 @@ pn.extension("echarts")
 pn.extension(
     "tabulator", "ace", css_files=["https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"]
 )
+pn.extension('ipywidgets')
 
 
 
@@ -387,9 +390,9 @@ def update_balance_lzh_gauges():
         gauge.value = lzh_by_balance.get(area, 0)
 
 # create map and add attributes ### TODO: Check how to join with well active DF
-m = folium.Map(
-    location=[52.38, 6.7], zoom_start=10
-)  # Adjust the center and zoom level as necessary
+basemap = ipy.leaflet.TileLayer(url="https://api.mapbox.com/v4/mapbox.outdoors/{z}/{x}/{y}.png")
+
+m = Map(center=(52.38, 6.7), zoom_start=10, basemap=basemaps.OpenStreetMap.Mapnik)  # Adjust the center and zoom level as necessary
 
 
 popup_well = folium.GeoJsonPopup(
@@ -419,88 +422,24 @@ def calculate_centroid(coordinates):
 
 # Function to Display map   
 def update_layers():
-    m = folium.Map(
-        location=[52.37, 6.7], zoom_start=10,
-        tiles="Cartodb Positron"
-    )  # Adjust the center and zoom level as necessary
+    
     active = active_wells_df[active_wells_df["Active"]==True]
+    geo_data = ipy.GeoData(
+        geo_dataframe=active,
+    style={
+        "color": "black",
+        "fillColor": "#3366cc",
+        "opacity": 0.05,
+        "weight": 1.9,
+        "dashArray": "2",
+        "fillOpacity": 0.6,
+    },
+    hover_style={"fillColor": "red", "fillOpacity": 0.2},
+    name="Hexagons",
+    )
     
-    folium.GeoJson(
-        active,
-        name="Wells",
-        zoom_on_click=True,
-        popup=popup_well,
-        tooltip=folium.GeoJsonTooltip(fields=["Name"], aliases=["Well Name:"]),
-        marker=folium.Marker(
-            icon=folium.Icon(
-                icon_color="#F9F6EE", icon="arrow-up-from-ground-water", prefix="fa"
-            )
-        ),
-    ).add_to(m)
-
-    hex = folium.GeoJson(
-        hexagons_filterd,
-        name="Hexagons",
-        style_function=lambda x: {
-            "fillColor": (
-                colormap(x["properties"]["Water Demand"])
-                if x["properties"]["Water Demand"] is not None
-                else "transparent"
-            ),
-            "color": "darkgray",
-            "fillOpacity": 0.8,
-            "weight": 0.7,
-        },
-        popup=popup_hex,
-    ).add_to(m)
-
-    m.add_child(colormap)
-
-    folium.GeoJson(
-        hexagons_filterd,
-        name="Natura2000 Restricted Area",
-        style_function=lambda x: {
-            "fillColor": (
-                "darkred"
-                if x["properties"]["Type"] == "Restricted Natura2000"
-                else "transparent"
-            ),
-            "color": "darkgray",
-            "fillOpacity": 0.8,
-            "weight": 0.7,
-        }, 
-        show= False,
-    ).add_to(m)
-
-    folium.GeoJson(
-        hexagons_filterd,
-        name="Restricted NNN",
-        style_function=lambda x: {
-            "fillColor": (
-                "#f9aaa2"
-                if x["properties"]["Type"] == "Restricted Other"
-                else "transparent"
-            ),
-            "color": "darkgray",
-            "fillOpacity": 0.8,
-            "weight": 0.7,
-        },
-        show= False,
-    ).add_to(m)
-    
-    folium.GeoJson(
-        balance_areas,
-        name="Balance Areas",
-        style_function=lambda x: {
-            "fillColor": "transparent",
-            "color": "#ce9ad6",
-            "weight": 3
-        },
-        show=True,
-        tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
-    ).add_to(m)
-    
-    folium.LayerControl().add_to(m)
+    m.add(geo_data)
+    m.add(ipy.LayersControl)
 
     return m
 
@@ -685,7 +624,7 @@ scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, B
 tabs = pn.Tabs(("Well Capacities", radio_layout), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
-map_pane = pn.pane.plot.Folium(m, sizing_mode="stretch_both")
+map_pane = pn.panel(m, sizing_mode="stretch_both")
 
 
 total_extraction = pn.indicators.Number(
