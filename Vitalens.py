@@ -3,7 +3,6 @@ import pandas as pd
 import panel as pn
 import numpy as np
 import fiona
-import pydeck as pdk
 from bokeh.models.formatters import PrintfTickFormatter
 import folium
 from folium.plugins import MarkerCluster
@@ -278,7 +277,7 @@ def update_df_display():
 def toggle_well(event, well_name):
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Active"] = event.new
     update_indicators()
-    # map_pane.object = update_layers()
+    map_pane.object = update_layers()
 
 # Function to update the slider value in the DataFrame
 def update_slider(event, well_name):
@@ -388,9 +387,9 @@ def update_balance_lzh_gauges():
         gauge.value = lzh_by_balance.get(area, 0)
 
 # create map and add attributes ### TODO: Check how to join with well active DF
-# m = folium.Map(
-#     location=[52.38, 6.7], zoom_start=10
-# )  # Adjust the center and zoom level as necessary
+m = folium.Map(
+    location=[52.38, 6.7], zoom_start=10
+)  # Adjust the center and zoom level as necessary
 
 
 # Normalize or scale a property for height
@@ -406,7 +405,6 @@ wells_4326=active_wells_df.to_crs(epsg=4326)
 
 hexagons_JSON = json.loads(hexagons_4326.to_json())
 wells_JSON = json.loads(wells_4326.to_json())
-print(hexagons_JSON['features'][0])
 
 
 
@@ -420,58 +418,6 @@ max_property = hexagons_4326['Water Demand'].max()
 for feature in hexagons_JSON['features']:
     property_value = feature['properties']['Water Demand']
     feature['properties']['elevation'] = normalize_height(property_value, min_property, max_property, min_height, max_height)
-
-
-
-
-# Define DeckGL layers
-hexagon_layer = pdk.Layer(
-    "GeoJsonLayer",
-    hexagons_JSON,
-    # get_polygon="geometry.coordinates",
-    get_fill_color="[0, (1 - properties['Water Demand']) * 123, 167, 240]",
-    pickable=True,
-    extruded=True,
-    stroked=True,
-    get_line_color='[255,255,255]',
-    get_elevation="properties['elevation']"
-)
-
-well_layer = pdk.Layer(
-    "ScatterplotLayer",
-    wells_JSON,
-    get_position="[geometry.coordinates[0], geometry.coordinates[1]]",
-    get_fill_color="[200, 30, 0, 160]",
-    get_radius=400,
-    pickable=True,
-)
-
-
-# Update the map initialization to use DeckGL
-initial_view_state = pdk.ViewState(
-    latitude=52.38,
-    longitude=6.7,
-    zoom=10,
-    pitch=50,
-)
-
-# define the tool tip for Map
-tooltip = ""
-tooltip += "<div style=''>Well: {Name}</div>"
-tooltip += "<div style=''>Production: {Value}</div>"
-# tooltip += "<div style=''>Well: {properties.Name}</div>"
-# tooltip += "<div style=''>Well: {properties.Name}</div>"
-
-deckgl_map = pdk.Deck(
-    layers=[well_layer,hexagon_layer],
-    initial_view_state=initial_view_state,
-    tooltip={
-        'html': tooltip,
-        'style': {
-            'color': 'white'
-        }
-    }
-)
 
 
 popup_well = folium.GeoJsonPopup(
@@ -500,7 +446,7 @@ def calculate_centroid(coordinates):
     return polygon.centroid.y, polygon.centroid.x
 
  # Function to Display map   
-# def update_layers():
+def update_layers():
     m = folium.Map(
         location=[52.37, 6.7], zoom_start=10,
         tiles="Cartodb Positron"
@@ -576,9 +522,9 @@ def calculate_centroid(coordinates):
         style_function=lambda x: {
             "fillColor": "transparent",
             "color": "#ce9ad6",
-            "weight": 2
+            "weight": 3
         },
-        show=False,
+        show=True,
         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
     ).add_to(m)
     
@@ -766,8 +712,7 @@ scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, B
 tabs = pn.Tabs(("Well Capacities", radio_layout), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
-# map_pane = pn.pane.plot.Folium(m, sizing_mode="stretch_both")
-map_pane = pn.pane.DeckGL(deckgl_map, sizing_mode="stretch_both")
+map_pane = pn.pane.plot.Folium(m, sizing_mode="stretch_both")
 
 total_extraction = pn.indicators.Number(
     name="Total Supply",
@@ -976,7 +921,7 @@ def total_extraction_update():
     update_balance_lzh_gauges()
     update_indicators()
     natura_pane.value = calculate_affected_Natura()
-    # map_pane.object = update_layers()
+    map_pane.object = update_layers()
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
 
