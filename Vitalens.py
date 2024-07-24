@@ -5,13 +5,10 @@ import numpy as np
 import fiona
 from bokeh.models.formatters import PrintfTickFormatter
 import folium
-from folium.plugins import MarkerCluster
-from folium.plugins import Search
 from shapely.geometry import shape, Polygon
 import branca
 from functools import partial
-import ipyleaflet as ipy
-from ipyleaflet import Map, basemaps
+
 
 
 # Styling
@@ -407,21 +404,11 @@ def normalize_height(value, min_value, max_value, target_min, target_max):
 hexagons_4326=hexagons_filterd.to_crs(epsg=4326)
 wells_4326=active_wells_df.to_crs(epsg=4326)
 
-hexagons_JSON = json.loads(hexagons_4326.to_json())
-wells_JSON = json.loads(wells_4326.to_json())
-
-
-
 # Example property scaling
 min_height = 100
 max_height = 2000
 min_property = hexagons_4326['Water Demand'].min()
 max_property = hexagons_4326['Water Demand'].max()
-
-# Add normalized height to GeoJSON data
-for feature in hexagons_JSON['features']:
-    property_value = feature['properties']['Water Demand']
-    feature['properties']['elevation'] = normalize_height(property_value, min_property, max_property, min_height, max_height)
 
 
 popup_well = folium.GeoJsonPopup(
@@ -449,7 +436,7 @@ def calculate_centroid(coordinates):
     polygon = Polygon(coordinates)
     return polygon.centroid.y, polygon.centroid.x
 
- # Function to Display map   
+# Function to Display map   
 def update_layers():
     global active_wells_df
     m = folium.Map(
