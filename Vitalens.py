@@ -10,8 +10,9 @@ from folium.plugins import Search
 from shapely.geometry import shape, Polygon
 import branca
 from functools import partial
+from ipywidgets import HTML
 import ipyleaflet as ipy
-from ipyleaflet import Map, basemaps
+from ipyleaflet import Map, basemaps, LayersControl, Icon, Marker
 
 
 # Styling
@@ -280,7 +281,7 @@ def update_df_display():
 def toggle_well(event, well_name):
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Active"] = event.new
     update_indicators()
-    # map_pane.object = update_layers()
+    map_pane.object = update_layers()
 
 # Function to update the slider value in the DataFrame
 def update_slider(event, well_name):
@@ -392,8 +393,16 @@ def update_balance_lzh_gauges():
 # create map and add attributes ### TODO: Check how to join with well active DF
 basemap = ipy.leaflet.TileLayer(url="https://api.mapbox.com/v4/mapbox.outdoors/{z}/{x}/{y}.png")
 
-m = Map(center=(52.38, 6.7), zoom_start=10, basemap=basemaps.OpenStreetMap.Mapnik)  # Adjust the center and zoom level as necessary
+# Function to calculate the centroid of a polygon
+def calculate_centroid(coordinates):
+    polygon = coordinates.unary_union
+    centroid = polygon.centroid
+    return [centroid.y, centroid.x]
 
+m = Map(center=calculate_centroid(hexagons.to_crs(4326)), 
+        zoom_start=7, basemap=basemaps.OpenStreetMap.Mapnik)  # Adjust the center and zoom level as necessary
+control = LayersControl(position='topright')
+m.add(control)
 
 popup_well = folium.GeoJsonPopup(
     fields=["Name", "Balance area", "Value"],
@@ -403,9 +412,8 @@ popup_hex = folium.GeoJsonPopup(
     fields=["Balance Area", "Water Demand", "Current Pop", "Type"],
 )
 icon_path = "./Assets/Water Icon.png"
-icon = folium.CustomIcon(
-    icon_path,
-    icon_size=(30, 30),
+icon = Icon(icon_url=icon_path,
+    icon_size=[30, 30],
 )
 
 colormap = branca.colormap.LinearColormap(
@@ -415,32 +423,45 @@ colormap = branca.colormap.LinearColormap(
     caption="Total water demand in Mm\u00b3/yr",
 ) 
 
-# Function to calculate the centroid of a polygon
-def calculate_centroid(coordinates):
-    polygon = Polygon(coordinates)
-    return polygon.centroid.y, polygon.centroid.x
+
+
+# Function to create a marker from a GeoDataFrame row
+def create_marker(row):
+    global icon
+    location = (row.geometry.y, row.geometry.x)
+    popup = HTML(value=f'{row["Name"]}: {row["Value"]}')
+    marker = Marker(location=location, icon=icon, popup=popup, draggable=False)
+    return marker
 
 # Function to Display map   
 def update_layers():
     
-    active = active_wells_df[active_wells_df["Active"]==True]
-    geo_data = ipy.GeoData(
-        geo_dataframe=active,
-    style={
-        "color": "black",
-        "fillColor": "#3366cc",
-        "opacity": 0.05,
-        "weight": 1.9,
-        "dashArray": "2",
-        "fillOpacity": 0.6,
-    },
-    hover_style={"fillColor": "red", "fillOpacity": 0.2},
-    name="Hexagons",
-    )
+    active = active_wells_df[active_wells_df["Active"] == True]
+    active = active.to_crs(4326)
     
-    m.add(geo_data)
-    m.add(ipy.LayersControl)
-
+    try:
+        m.clear
+    except:
+        print("Layer does not exist yet")
+    finally:
+    # Add markers to the map with custom icons
+        for _, row in active.iterrows():
+            marker = create_marker(row)
+            m.add(marker)
+    # wells_map = ipy.GeoData(
+    #     geo_dataframe=active,
+    # style={
+    #     "color": "black",
+    #     "fillColor": "#3366cc",
+    #     "opacity": 0.5,
+    #     "weight": 1.9,
+    #     "dashArray": "2",
+    #     "fillOpacity": 0.6,
+    # },
+    # hover_style={"fillColor": "red", "fillOpacity": 0.2},
+    # name="Hexagons",
+    # ) 
+    
     return m
 
 # Function to update the title of the Box
@@ -516,7 +537,6 @@ def update_indicators():
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
     update_balance_lzh_gauges()
-    map_pane.object=update_layers()
     
 
 # Initialize a dictionary to hold the active state and slider references
@@ -581,7 +601,7 @@ for index, row in wells.iterrows():
     active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": NamePane}
 
 # Create a layout for the radio buttons
-radio_layout = pn.Accordion(styles={'width': '97%', 'color':'#151931'})
+radio_layout = pn.Accordion(styles={'width': '95%', 'color':'#151931'})
 for balance_area, layouts in balance_area_buttons.items():
     balance_area_column = pn.Column(*layouts)
     radio_layout.append((balance_area, balance_area_column))
@@ -624,7 +644,7 @@ scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, B
 tabs = pn.Tabs(("Well Capacities", radio_layout), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
-map_pane = pn.panel(m, sizing_mode="stretch_both")
+map_pane = pn.pane.IPyLeaflet(m, sizing_mode="stretch_width")
 
 
 total_extraction = pn.indicators.Number(
@@ -796,9 +816,7 @@ main1[0, 0] = pn.Row(map_pane)
 
 main2 = pn.Row(
     natura_pane,
-
     Env_pane,
-
     excess_cap,
     sizing_mode="scale_width",
     scroll=True
@@ -837,6 +855,7 @@ def total_extraction_update():
     map_pane.object = update_layers()
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
+
 
 total_extraction_update()
 
