@@ -10,7 +10,6 @@ import branca
 from functools import partial
 
 
-
 # Styling
 globalCss_route= "Stylesheet.css"
 cssStyle = ['''
@@ -99,11 +98,11 @@ pn.extension('ipywidgets')
 
 
 # Load the GeoPackage file
-gpkg_file = "./Assets/Thematic_data.gpkg"
-layers = fiona.listlayers(gpkg_file)  # Load all layers
+GPKG_FILE = "./Assets/Thematic_data.gpkg"
+layers = fiona.listlayers(GPKG_FILE)  # Load all layers
 
 # Get Wells Attributes
-wells = gpd.read_file(gpkg_file, layer="Well_Capacity_Cost")
+wells = gpd.read_file(GPKG_FILE, layer="Well_Capacity_Cost")
 # Convert the capacity columns to numeric, setting errors='coerce' will replace non-numeric values with NaN
 wells["Permit__Mm3_per_jr_"] = pd.to_numeric(
     wells["Permit__Mm3_per_jr_"], errors="coerce"
@@ -152,7 +151,7 @@ growRate = 0.0062
 demand_capita = 0.1560
 
 # Get Destination Attributes
-hexagons = gpd.read_file(gpkg_file, layer="H3_Lvl8")
+hexagons = gpd.read_file(GPKG_FILE, layer="H3_Lvl8")
 # Create a new column 'Type_T' with default values
 hexagons["Type_T"] = ""
 
@@ -538,34 +537,90 @@ def update_layers():
     return m
 
 # Function to update the title of the Box
+active_scenarios = set()
+
 def update_title(new_title):
-    content = '## ' + new_title
+    current_title = app_title.object
+    content = current_title + new_title
     app_title.object = content
 
+    
+def reset_title(new_title):
+    content = "## "+ new_title
+    app_title.object = content 
+
+def update_title(event):
+    text = ["## Scenario", " Current State"]
+    if Button1.value:
+        if "Accelerated Growth" in text:
+            text.remove("Accelerated Growth")
+        text.append("Autonumos Growth")
+        Scenario1()
+    if Button2.value:
+        if "Autonumos Growth" in text:
+            text.remove("Autonumos Growth")
+        text.append("Accelerated Growth")
+        Scenario2()
+    if Button3.value:
+        text.append("Closed Small Wells")
+        Measure1On()
+    if Button3.value == False:
+        Measure1Off()
+    if Button4.value:
+        text.append("Closed Natura Wells")
+        Measure2On()
+    if Button4.value == False:
+        Measure2Off()
+    if Button5.value:
+        text.append("Use of Smart Meters")
+        Measure3On()
+    if Button5.value == False:
+        Measure3Off()
+    
+    app_title.object = " - ".join(text)
+    print(text)
+    update_indicators()  # Update the total demand indicator
+
 # Function to create Scenarios
-def Scenario1(event):
+def Scenario1():
     demand_capita = 0.156*1.1
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-    update_title("VITALENS - Autonumos Growth")
-    update_indicators()  # Update the total demand indicator
+    # update_indicators()  # Update the total demand indicator
     
 
-def Scenario2(event):
+def Scenario2():
     demand_capita = 0.156*1.35
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-    update_title("VITALENS - Accelerated Growth")
-    update_indicators()  # Update the total demand indicator
+
     
-    
-def Scenario3(event):
+def Measure1On():
     active_wells_df.loc[active_wells_df["Max_permit"] <= 5, "Active"] = False
-    update_title("VITALENS - Closed Wells")
-    update_indicators()
+
+def Measure1Off():
+    active_wells_df.loc[active_wells_df["Max_permit"] > 5, "Active"] = True
+
+def Measure2On():
+    active_wells_df.loc[active_wells_df["Name"] == "Archemerberg", "Active"] = False
+    active_wells_df.loc[active_wells_df["Name"] == "Nijverdal", "Active"] = False
+def Measure2Off():
+    active_wells_df.loc[active_wells_df["Name"] == "Archemerberg", "Active"] = True
+    active_wells_df.loc[active_wells_df["Name"] == "Nijverdal", "Active"] = True
     
+def Measure3On():
+    demand_capita = 0.156 *0.9
+    hexagons_filterd["Water Demand"] = (
+        hexagons_filterd["Pop2022"] * demand_capita * 365
+    ) / 1000000
+def Measure3Off():
+    demand_capita = 0.156
+    hexagons_filterd["Water Demand"] = (
+        hexagons_filterd["Pop2022"] * demand_capita * 365
+    ) / 1000000
+
     
 def Reset(event):
     demand_capita = 0.156
@@ -594,8 +649,10 @@ def Reset(event):
     }
 )
     df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
+    Button1.value, Button2.value, Button3.value, Button4.value, Button5.value = False, False, False, False, False
+    reset_title("VITALENS - Current Situation")
     update_indicators()  # Update the total demand indicator
-    update_title("VITALENS - Current Situation")
+    
 
 # Update Indicators
 def update_indicators():
@@ -610,7 +667,7 @@ def update_indicators():
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
     update_balance_lzh_gauges()
-    map_pane.object=update_layers()
+    # map_pane.object=update_layers()
     
 
 # Initialize a dictionary to hold the active state and slider references
@@ -681,19 +738,32 @@ for balance_area, layouts in balance_area_buttons.items():
     radio_layout.append((balance_area, balance_area_column))
 
 Button1 = pn.widgets.Button(
-    name='Autonomous growth', button_type="primary", width=300, margin=10
+    name='Autonomous growth', button_type="primary", width=300, margin=10,
+    
 )
-Button1.on_click(Scenario1)
+Button1.param.watch(update_title, 'value')
+
+#Button1.on_click(Scenario1)
 Button2 = pn.widgets.Button(
-    name="Accelerated growth", button_type="primary", width=300, margin=10
+    name="Accelerated growth", button_type="primary", width=300, margin=10, 
 )
-Button2.on_click(Scenario2)
+Button2.param.watch(update_title, 'value')
 
-Button3 = pn.widgets.Button(
-    name='Close Wells', button_type="primary", width=300, margin=10
+Button3 = pn.widgets.Toggle(
+    name='Close Small Wells', button_type="primary", button_style="outline", width=300, margin=10, 
 )
-Button3.on_click(Scenario3)
+Button3.param.watch(update_title, 'value')
 
+
+Button4 = pn.widgets.Toggle(
+    name='Close Natura 2000 Wells', button_type="primary", button_style="outline", width=300, margin=10, 
+)
+Button4.param.watch(update_title, 'value')
+
+Button5 = pn.widgets.Toggle(
+    name='Include Smart Meters', button_type="primary", button_style="outline", width=300, margin=10, 
+)
+Button5.param.watch(update_title, 'value')
 
 ButtonR = pn.widgets.Button(
     name='Reset', button_type='warning', width=300, margin=10
@@ -702,18 +772,32 @@ ButtonR.on_click(Reset)
 
 textB1 = pn.pane.HTML(
     '''
-    <h3 align= "center"> Scenarios</h3><hr>
-    <b>Scenario with demand increase of 10%</b>''', width=300, align="start"
+    <h3 align= "center" style="margin: 5px;"> Scenarios</h3><hr>
+    <b>Scenario with demand increase of 10% &#8628;</b>''', width=300, align="start"
 )
 textB2 = pn.pane.HTML(
-    '<b>Scenario with demand increase of 35%</b>', width=300, align="start"
+    '''<b>Scenario with demand increase of 35% &#8628;</b>''', width=300, align="start"
 )
 textB3 = pn.pane.HTML(
-    '''<hr class="dashed"><h3 align= "center"> Measures </h3> <hr>
-    <b>Close down all well locations with production less than 5Mm\u00b3/yr</b>''', width=300, align="start", styles={}
+    '''<hr class="dashed"><h3 align= "center" style="margin: 5px;"> Measures </h3> <hr>
+    <b>Close down all well locations with production less than 5Mm\u00b3/yr &#8628;</b>''', width=300, align="start", styles={}
+)
+textB4 = pn.pane.HTML(
+    '''
+    <b>Close down all well locations in less than 100m from a Natura 2000 Area &#8628;</b>''', width=300, align="start", styles={}
 )
 
-scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, ButtonR)
+textB5 = pn.pane.HTML(
+    '''
+    <b>Installation of Water Smartmeters: Reduction of 10% on demand &#8628;</b>''', width=300, align="start", styles={}
+)
+
+textEnd = pn.pane.HTML(
+    '''<hr class="dashed">
+    ''', width=300, align="start", styles={}
+)
+
+scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, textB4, Button4, textB5, Button5, textEnd, ButtonR)
 
 tabs = pn.Tabs(("Well Capacities", radio_layout), ("Scenarios", scenario_layout))
 
@@ -828,7 +912,7 @@ lzh = pn.indicators.Gauge(
     value=calculate_lzh(),
     bounds=(0, 150),
     format="{value} %",
-    colors=[(0.66, "#F19292"), (0.8, "#F6D186"),(0.9, "#CBE2B0"), (1, "#bee3db")],
+    colors=[(0.66, "#F19292"), (0.8, "#f2bf57"),(0.9, "#CBE2B0"), (1, "#bee3db")],
     custom_opts={
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
@@ -883,9 +967,15 @@ Supp_dem = pn.Row(
 
 Env_pane = pn.Column(co2_pane, drought_pane, sizing_mode="scale_width")
 
+# Create a dynamic title
+app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
+    "text-align": "right",
+    "color": "#00B893"
+})
+
+
 main1 = pn.GridSpec(sizing_mode="stretch_both")
 main1[0, 0] = pn.Row(map_pane)
-
 
 main2 = pn.Row(
     natura_pane,
@@ -897,26 +987,19 @@ main2 = pn.Row(
     scroll=True
 )
 
-main1[0, 1] = pn.Column(lzh, Supp_dem, opexTabs, main2, sizing_mode="stretch_width")
-
-
-# Create a dynamic title
-app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
-    "text-align": "right",
-    "color": "#00B893"
-})
+main1[0, 1] = pn.Column(app_title, lzh, Supp_dem, opexTabs, main2, sizing_mode="stretch_width")
 
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
     logo="https://uavonline.nl/wp-content/uploads/2020/11/vitens-logo-1.png",
     sidebar=tabs,
-    main=[app_title, main1],
+    main=[main1],
     # background_color = '#f2f2ed',
     # neutral_color='#151931',
     # accent_base_color= '#3850a0',
     header_background= '#3850a0',
     header_color= '#f2f2ed',
-    sidebar_width = 320
+    sidebar_width = 325
 )
 
 def total_extraction_update():
