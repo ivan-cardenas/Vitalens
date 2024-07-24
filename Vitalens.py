@@ -10,7 +10,9 @@ from folium.plugins import Search
 from shapely.geometry import shape, Polygon
 import branca
 from functools import partial
-import json
+import ipyleaflet as ipy
+from ipyleaflet import Map, basemaps
+
 
 # Styling
 globalCss_route= "Stylesheet.css"
@@ -95,7 +97,8 @@ pn.extension("echarts")
 pn.extension(
     "tabulator", "ace", css_files=["https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"]
 )
-pn.extension('deckgl')
+pn.extension('ipywidgets')
+
 
 
 # Load the GeoPackage file
@@ -620,6 +623,7 @@ def update_indicators():
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
     update_balance_lzh_gauges()
+    map_pane.object=update_layers()
     
 
 # Initialize a dictionary to hold the active state and slider references
