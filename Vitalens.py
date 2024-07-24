@@ -388,8 +388,9 @@ def update_balance_lzh_gauges():
 
 # create map and add attributes ### TODO: Check how to join with well active DF
 m = folium.Map(
-    location=[52.38, 6.7], zoom_start=10
-)  # Adjust the center and zoom level as necessary
+    location=[52.38, 6.7], zoom_start=10,
+    tiles="Cartodb Positron"
+    )  # Adjust the center and zoom level as necessary
 
 
 # Normalize or scale a property for height
@@ -447,10 +448,12 @@ def calculate_centroid(coordinates):
 
  # Function to Display map   
 def update_layers():
+    global active_wells_df
     m = folium.Map(
-        location=[52.37, 6.7], zoom_start=10,
-        tiles="Cartodb Positron"
-    )  # Adjust the center and zoom level as necessary
+    location=[52.38, 6.7], zoom_start=10,
+    tiles="Cartodb Positron"
+    ) 
+     # Adjust the center and zoom level as necessary
     active = active_wells_df[active_wells_df["Active"]==True]
     
     folium.GeoJson(
@@ -475,7 +478,11 @@ def update_layers():
                 if x["properties"]["Water Demand"] is not None
                 else "transparent"
             ),
-            "color": "darkgray",
+             "color": (
+                "darkgray"
+                if x["properties"]["Balance Area"] is not None
+                else "transparent"
+                ),
             "fillOpacity": 0.8,
             "weight": 0.7,
         },
@@ -493,7 +500,11 @@ def update_layers():
                 if x["properties"]["Type"] == "Restricted Natura2000"
                 else "transparent"
             ),
-            "color": "darkgray",
+            "color": (
+                "darkgray"
+                if x["properties"]["Balance Area"] is not None
+                else "transparent"
+                ),
             "fillOpacity": 0.8,
             "weight": 0.7,
         }, 
@@ -509,7 +520,11 @@ def update_layers():
                 if x["properties"]["Type"] == "Restricted Other"
                 else "transparent"
             ),
-            "color": "darkgray",
+             "color": (
+                "darkgray"
+                if x["properties"]["Balance Area"] is not None
+                else "transparent"
+                ),
             "fillOpacity": 0.8,
             "weight": 0.7,
         },
@@ -712,7 +727,7 @@ scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, B
 tabs = pn.Tabs(("Well Capacities", radio_layout), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
-map_pane = pn.pane.plot.Folium(m, sizing_mode="stretch_both")
+map_pane = pn.pane.plot.Folium(update_layers(), sizing_mode="stretch_both")
 
 total_extraction = pn.indicators.Number(
     name="Total Supply",
@@ -909,7 +924,8 @@ Box = pn.template.MaterialTemplate(
     # neutral_color='#151931',
     # accent_base_color= '#3850a0',
     header_background= '#3850a0',
-    header_color= '#f2f2ed'
+    header_color= '#f2f2ed',
+    sidebar_width = 320
 )
 
 def total_extraction_update():
