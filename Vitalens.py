@@ -380,6 +380,8 @@ def update_radio(event, well_name):
     name_pane = active_wells[well_name]["name_pane"]
     name_pane.object = update_well_Name(well_name)
     update_indicators()
+    
+
 
 def update_well_Name(well_name):
     """
@@ -393,6 +395,22 @@ def update_well_Name(well_name):
     """
     current_extraction = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
     return f"{current_extraction:.2f} Mm\u00b3/yr"
+
+# Function to update the yearCal variable
+def update_year(event):
+    global yearCal
+    yearCal = event.new
+    if yearCal == 2022:
+        hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]
+    else:
+        hexagons_filterd["Current Pop"] = round(
+            hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((yearCal - 2022))), 0
+        )
+    hexagons_filterd["Water Demand"] = (
+        hexagons_filterd["Current Pop"] * 0.1560 * 365
+    ) / 1000000
+    df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
+    update_indicators()  # Update the total demand indicator
 
 def calculate_total_Demand():
     """
@@ -664,13 +682,6 @@ def reset_title(new_title):
     app_title.object = content 
 
 def update_title(event):
-    """
-    Update the title based on the event and update indicators.
-
-    Args:
-        event: The event object.
-    """
-    global active_wells_df
     text = ["## Scenario", " Current State"]
     if Button1.value:
         if "Accelerated Growth" in text:
@@ -703,55 +714,29 @@ def update_title(event):
     
     app_title.object = " - ".join(text)
     print(text)
-    print(active_wells_df.head())
-    update_indicators()
+    update_indicators()  # Update the total demand indicator
 
-def Scenario1(event):
-    """
-    Implement the first scenario with a demand increase of 10%.
-
-    Args:
-        event: The event object.
-    """
-    global hexagons_filterd
-    demand_capita = 0.156 * 1.1
+# Function to create Scenarios
+def Scenario1():
+    demand_capita = 0.156*1.1
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-    print("Scenario 1 ran perfectly")
-    update_indicators()
+    # update_indicators()  # Update the total demand indicator
+    
 
-def Scenario2(event):
-    """
-    Implement the second scenario with a demand increase of 35%.
-
-    Args:
-        event: The event object.
-    """
-    global hexagons_filterd
-    demand_capita = 0.156 * 1.35
+def Scenario2():
+    demand_capita = 0.156*1.35
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
     update_indicators()
 
 def Measure1On():
-    """
-    Activate the first measure (closing small wells).
-    """
-    global active_wells_df
-    pd.options.mode.copy_on_write = True       
-    condition = active_wells_df["Max_permit"] < 5.00
-    active_wells_df.loc[condition, "Active"] = False
+    active_wells_df.loc[active_wells_df["Max_permit"] <= 5, "Active"] = False
 
 def Measure1Off():
-    """
-    Deactivate the first measure (closing small wells).
-    """
-    global active_wells_df
-    pd.options.mode.copy_on_write = True       
-    condition = active_wells_df["Max_permit"] >= 5.00
-    active_wells_df.loc[condition, "Active"] = True
+    active_wells_df.loc[active_wells_df["Max_permit"] > 5, "Active"] = True
 
 def Measure2On():
     """
@@ -834,13 +819,13 @@ def Reset(event):
 )
     df_Hexagons.object = hexagons_filterd.head()
     Button1.value, Button2.value, Button3.value, Button4.value, Button5.value = False, False, False, False, False
+    # years.value = 2024
     reset_title("VITALENS - Current Situation")
-    update_indicators()
+    update_indicators()  # Update the total demand indicator
+    
 
-def update_indicators(arg=None):
-    """
-    Update all the indicators displayed in the application.
-    """
+# Update Indicators
+def update_indicators():
     total_extraction.value = calculate_total_extraction()
     total_opex.value = calculate_total_OPEX()
     excess_cap.value = calculate_available()
@@ -852,6 +837,8 @@ def update_indicators(arg=None):
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
     update_balance_lzh_gauges()
+    # map_pane.object=update_layers()
+    
 
 # Initialize a dictionary to hold the active state and slider references
 active_wells = {}
@@ -916,7 +903,7 @@ for index, row in wells.iterrows():
 radioButton_layout = pn.Accordion(styles={'width': '97%', 'color':'#151931'})
 for balance_area, layouts in balance_area_buttons.items():
     balance_area_column = pn.Column(*layouts)
-    radioButton_layout.append((balance_area, balance_area_column))
+    radio_layout.append((balance_area, balance_area_column))
 
 Button1 = pn.widgets.Button(
     name='Autonomous growth', button_type="primary", width=300, margin=10,
