@@ -558,12 +558,10 @@ def update_title(event):
         if "Accelerated Growth" in text:
             text.remove("Accelerated Growth")
         text.append("Autonumos Growth")
-        Scenario1()
     if Button2.value:
         if "Autonumos Growth" in text:
             text.remove("Autonumos Growth")
         text.append("Accelerated Growth")
-        Scenario2()
     if Button3.value:
         text.append("Closed Small Wells")
         Measure1On()
@@ -579,39 +577,48 @@ def update_title(event):
         Measure3On()
     if Button5.value == False:
         Measure3Off()
+    if Button6.value:
+        text.append("Import Water")
+        Measure4On()
+    if Button6.value == False:
+        Measure4Off()
     
     app_title.object = " - ".join(text)
     print(text)
-    print(hexagons_filterd.head())
+    print(active_wells_df.head())
     update_indicators()  # Update the total demand indicator
 
 # Function to create Scenarios
-def Scenario1():
+def Scenario1(event):
     global hexagons_filterd
     demand_capita = 0.156*1.1
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
     print("Scenario 1 ran perfectly")
-    # update_indicators()  # Update the total demand indicator
+    update_indicators()  # Update the total demand indicator
     
 
-def Scenario2():
+def Scenario2(event):
     global hexagons_filterd
     demand_capita = 0.156*1.35
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-
+    update_indicators()  # Update the total demand indicator
     
 def Measure1On():
     global active_wells_df
+    pd.options.mode.copy_on_write = True       
+
     condition = active_wells_df["Max_permit"] < 5.00
     active_wells_df.loc[condition, "Active"] = False
     
 
 def Measure1Off():
     global active_wells_df
+    pd.options.mode.copy_on_write = True       
+
     condition = active_wells_df["Max_permit"] >= 5.00
     active_wells_df.loc[condition, "Active"] = True
 
@@ -634,6 +641,15 @@ def Measure3Off():
         hexagons_filterd["Pop2022"] * demand_capita * 365
     ) / 1000000
 
+def Measure4On():
+    active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 0,0,0,0,0,0, "POINT (253802.6,498734.2)"]
+
+def Measure4Off():
+    try:
+        active_wells_df.drop(active_wells_df[active_wells_df["Name"]=='Imports'].index, inplace=True)
+    except:
+        print ("Row does not exist")
+    
     
 def Reset(event):
     demand_capita = 0.156
@@ -760,12 +776,14 @@ Button1 = pn.widgets.Button(
     name='Autonomous growth', button_type="primary", width=300, margin=10,
 )
 Button1.param.watch(update_title, 'value')
+Button1.on_click(Scenario1)
 
-#Button1.on_click(Scenario1)
+
 Button2 = pn.widgets.Button(
     name="Accelerated growth", button_type="primary", width=300, margin=10, 
 )
 Button2.param.watch(update_title, 'value')
+Button2.on_click(Scenario2)
 
 Button3 = pn.widgets.Toggle(
     name='Close Small Wells', button_type="primary", button_style="outline", width=300, margin=10, 
@@ -782,6 +800,11 @@ Button5 = pn.widgets.Toggle(
     name='Include Smart Meters', button_type="primary", button_style="outline", width=300, margin=10, 
 )
 Button5.param.watch(update_title, 'value')
+
+Button6 = pn.widgets.Toggle(
+    name='Import Water', button_type="primary", button_style="outline", width=300, margin=10, 
+)
+Button6.param.watch(update_title, 'value')
 
 ButtonR = pn.widgets.Button(
     name='Reset', button_type='danger', width=300, margin=10
@@ -816,12 +839,17 @@ textB5 = pn.pane.HTML(
     <b>Installation of Water Smartmeters: Reduction of 10% on demand &#8628;</b>''', width=300, align="start", styles={}
 )
 
+textB6 = pn.pane.HTML(
+    '''
+    <b>Importing water from WAZ Getelo, NVB Nordhorn and Haaksbergen</b>''', width=300, align="start", styles={}
+)
+
 textEnd = pn.pane.HTML(
     '''<hr class="dashed">
     ''', width=300, align="start", styles={}
 )
 
-scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, textB4, Button4, textB5, Button5, textEnd, ButtonR)
+scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR)
 
 tabs = pn.Tabs(("Well Capacities", radioButton_layout), ("Scenarios", scenario_layout))
 
