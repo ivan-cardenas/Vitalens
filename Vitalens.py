@@ -145,6 +145,7 @@ active_wells_df = gpd.GeoDataFrame(
         "geometry": wells["geometry"],
     }
 )
+active_wells_df.astype({"Num_Wells": "int32", "Ownership": "int32"}, copy=False)
 
 yearCal = 2022
 growRate = 0.0062
@@ -181,7 +182,7 @@ hexagons_filterd = gpd.GeoDataFrame(
         "Type": hexagons["Type_T"],
         "Source_Name": hexagons["Source_Name"],
         "geometry": hexagons["geometry"],
-    }
+    }, copy=False
 )
 
 balance_areas= hexagons_filterd.dissolve(by="Balance Area", as_index=False)
@@ -317,6 +318,8 @@ def update_radio(event, well_name):
     name_pane = active_wells[well_name]["name_pane"]
     name_pane.object = update_well_Name(well_name)
     update_indicators()
+    
+
 
 
 def update_well_Name(well_name):
@@ -324,20 +327,19 @@ def update_well_Name(well_name):
     return f"{current_extraction:.2f} Mm\u00b3/yr"
 
 # Function to update the yearCal variable
-def update_year(event):
-    global yearCal
-    yearCal = event.new
-    if yearCal == 2022:
-        hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]
-    else:
-        hexagons_filterd["Current Pop"] = round(
-            hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((yearCal - 2022))), 0
-        )
-    hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * 0.1560 * 365
-    ) / 1000000
-    df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
-    update_indicators()  # Update the total demand indicator
+# def update_year(event):     
+#     if event.new == 2024:
+#         hexagons_filterd["Current Pop"] = round(
+#             hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((2024 - 2022))), 0
+#         )
+#     if event.new == 2035:
+#         hexagons_filterd["Current Pop"] = round(
+#             hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((2035 - 2022))), 0
+#         )
+#     hexagons_filterd["Water Demand"] = (
+#         hexagons_filterd["Current Pop"] * 0.1560 * 365
+#     ) / 1000000
+#     update_indicators()  # Update the total demand indicator
 
 def calculate_total_Demand():
     total = ((hexagons_filterd["Water Demand"]).sum()) + (
@@ -550,17 +552,16 @@ def reset_title(new_title):
     app_title.object = content 
 
 def update_title(event):
+    global active_wells_df
     text = ["## Scenario", " Current State"]
     if Button1.value:
         if "Accelerated Growth" in text:
             text.remove("Accelerated Growth")
         text.append("Autonumos Growth")
-        Scenario1()
     if Button2.value:
         if "Autonumos Growth" in text:
             text.remove("Autonumos Growth")
         text.append("Accelerated Growth")
-        Scenario2()
     if Button3.value:
         text.append("Closed Small Wells")
         Measure1On()
@@ -576,32 +577,51 @@ def update_title(event):
         Measure3On()
     if Button5.value == False:
         Measure3Off()
+    if Button6.value:
+        text.append("Import Water")
+        Measure4On()
+    if Button6.value == False:
+        Measure4Off()
     
     app_title.object = " - ".join(text)
     print(text)
+    print(active_wells_df.head())
     update_indicators()  # Update the total demand indicator
 
 # Function to create Scenarios
-def Scenario1():
+def Scenario1(event):
+    global hexagons_filterd
     demand_capita = 0.156*1.1
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-    # update_indicators()  # Update the total demand indicator
+    print("Scenario 1 ran perfectly")
+    update_indicators()  # Update the total demand indicator
     
 
-def Scenario2():
+def Scenario2(event):
+    global hexagons_filterd
     demand_capita = 0.156*1.35
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-
+    update_indicators()  # Update the total demand indicator
     
 def Measure1On():
-    active_wells_df.loc[active_wells_df["Max_permit"] <= 5, "Active"] = False
+    global active_wells_df
+    pd.options.mode.copy_on_write = True       
+
+    condition = active_wells_df["Max_permit"] < 5.00
+    active_wells_df.loc[condition, "Active"] = False
+    
 
 def Measure1Off():
-    active_wells_df.loc[active_wells_df["Max_permit"] > 5, "Active"] = True
+    global active_wells_df
+    pd.options.mode.copy_on_write = True       
+
+    condition = active_wells_df["Max_permit"] >= 5.00
+    active_wells_df.loc[condition, "Active"] = True
+
 
 def Measure2On():
     active_wells_df.loc[active_wells_df["Name"] == "Archemerberg", "Active"] = False
@@ -621,6 +641,15 @@ def Measure3Off():
         hexagons_filterd["Pop2022"] * demand_capita * 365
     ) / 1000000
 
+def Measure4On():
+    active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 0,0,0,0,0,0, "POINT (253802.6,498734.2)"]
+
+def Measure4Off():
+    try:
+        active_wells_df.drop(active_wells_df[active_wells_df["Name"]=='Imports'].index, inplace=True)
+    except:
+        print ("Row does not exist")
+    
     
 def Reset(event):
     demand_capita = 0.156
@@ -650,12 +679,13 @@ def Reset(event):
 )
     df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
     Button1.value, Button2.value, Button3.value, Button4.value, Button5.value = False, False, False, False, False
+    # years.value = 2024
     reset_title("VITALENS - Current Situation")
     update_indicators()  # Update the total demand indicator
     
 
 # Update Indicators
-def update_indicators():
+def update_indicators(arg=None):
     total_extraction.value = calculate_total_extraction()
     total_opex.value = calculate_total_OPEX()
     excess_cap.value = calculate_available()
@@ -668,7 +698,7 @@ def update_indicators():
     lzh.value = calculate_lzh()
     update_balance_lzh_gauges()
     # map_pane.object=update_layers()
-    
+    pass
 
 # Initialize a dictionary to hold the active state and slider references
 active_wells = {}
@@ -732,22 +762,28 @@ for index, row in wells.iterrows():
     active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": NamePane}
 
 # Create a layout for the radio buttons
-radio_layout = pn.Accordion(styles={'width': '97%', 'color':'#151931'})
+radioButton_layout = pn.Accordion(styles={'width': '97%', 'color':'#151931'})
 for balance_area, layouts in balance_area_buttons.items():
     balance_area_column = pn.Column(*layouts)
-    radio_layout.append((balance_area, balance_area_column))
+    radioButton_layout.append((balance_area, balance_area_column))
+    
+# years = pn.widgets.RadioButtonGroup(name="Year", options=[2024,2035], button_type = "warning", value=2024, styles={"margin": "5px"})
+# years.param.watch(update_year, 'value')
+
+
 
 Button1 = pn.widgets.Button(
     name='Autonomous growth', button_type="primary", width=300, margin=10,
-    
 )
 Button1.param.watch(update_title, 'value')
+Button1.on_click(Scenario1)
 
-#Button1.on_click(Scenario1)
+
 Button2 = pn.widgets.Button(
     name="Accelerated growth", button_type="primary", width=300, margin=10, 
 )
 Button2.param.watch(update_title, 'value')
+Button2.on_click(Scenario2)
 
 Button3 = pn.widgets.Toggle(
     name='Close Small Wells', button_type="primary", button_style="outline", width=300, margin=10, 
@@ -765,10 +801,21 @@ Button5 = pn.widgets.Toggle(
 )
 Button5.param.watch(update_title, 'value')
 
+Button6 = pn.widgets.Toggle(
+    name='Import Water', button_type="primary", button_style="outline", width=300, margin=10, 
+)
+Button6.param.watch(update_title, 'value')
+
 ButtonR = pn.widgets.Button(
-    name='Reset', button_type='warning', width=300, margin=10
+    name='Reset', button_type='danger', width=300, margin=10
 )
 ButtonR.on_click(Reset)
+
+textYears = pn.pane.HTML(
+    '''
+    <h3 align= "center" style="margin: 5px;"> Year Selection</h3><hr>
+  ''', width=300, align="start", styles={"margin": "5px"}
+)
 
 textB1 = pn.pane.HTML(
     '''
@@ -792,14 +839,19 @@ textB5 = pn.pane.HTML(
     <b>Installation of Water Smartmeters: Reduction of 10% on demand &#8628;</b>''', width=300, align="start", styles={}
 )
 
+textB6 = pn.pane.HTML(
+    '''
+    <b>Importing water from WAZ Getelo, NVB Nordhorn and Haaksbergen</b>''', width=300, align="start", styles={}
+)
+
 textEnd = pn.pane.HTML(
     '''<hr class="dashed">
     ''', width=300, align="start", styles={}
 )
 
-scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, textB4, Button4, textB5, Button5, textEnd, ButtonR)
+scenario_layout = pn.Column(textB1, Button1, textB2, Button2, textB3, Button3, textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR)
 
-tabs = pn.Tabs(("Well Capacities", radio_layout), ("Scenarios", scenario_layout))
+tabs = pn.Tabs(("Well Capacities", radioButton_layout), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
 map_pane = pn.pane.plot.Folium(update_layers(), sizing_mode="stretch_both")
