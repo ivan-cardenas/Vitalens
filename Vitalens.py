@@ -714,29 +714,39 @@ def update_title(event):
     
     app_title.object = " - ".join(text)
     print(text)
+    print(hexagons_filterd.head())
     update_indicators()  # Update the total demand indicator
 
 # Function to create Scenarios
 def Scenario1():
+    global hexagons_filterd
     demand_capita = 0.156*1.1
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
+    print("Scenario 1 ran perfectly")
     # update_indicators()  # Update the total demand indicator
     
 
 def Scenario2():
+    global hexagons_filterd
     demand_capita = 0.156*1.35
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
-    update_indicators()
 
+    
 def Measure1On():
-    active_wells_df.loc[active_wells_df["Max_permit"] <= 5, "Active"] = False
+    global active_wells_df
+    condition = active_wells_df["Max_permit"] < 5.00
+    active_wells_df.loc[condition, "Active"] = False
+    
 
 def Measure1Off():
-    active_wells_df.loc[active_wells_df["Max_permit"] > 5, "Active"] = True
+    global active_wells_df
+    condition = active_wells_df["Max_permit"] >= 5.00
+    active_wells_df.loc[condition, "Active"] = True
+
 
 def Measure2On():
     """
@@ -770,21 +780,7 @@ def Measure3Off():
         hexagons_filterd["Pop2022"] * demand_capita * 365
     ) / 1000000
 
-def Measure4On():
-    """
-    Activate the fourth measure (importing water).
-    """
-    active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 0,0,0,0,0,0, "POINT (253802.6,498734.2)"]
-
-def Measure4Off():
-    """
-    Deactivate the fourth measure (importing water).
-    """
-    try:
-        active_wells_df.drop(active_wells_df[active_wells_df["Name"]=='Imports'].index, inplace=True)
-    except:
-        print("Row does not exist")
-
+    
 def Reset(event):
     """
     Reset the application to its initial state.
@@ -903,7 +899,7 @@ for index, row in wells.iterrows():
 radioButton_layout = pn.Accordion(styles={'width': '97%', 'color':'#151931'})
 for balance_area, layouts in balance_area_buttons.items():
     balance_area_column = pn.Column(*layouts)
-    radio_layout.append((balance_area, balance_area_column))
+    radioButton_layout.append((balance_area, balance_area_column))
 
 Button1 = pn.widgets.Button(
     name='Autonomous growth', button_type="primary", width=300, margin=10,
@@ -911,6 +907,7 @@ Button1 = pn.widgets.Button(
 Button1.param.watch(update_title, 'value')
 Button1.on_click(Scenario1)
 
+#Button1.on_click(Scenario1)
 Button2 = pn.widgets.Button(
     name="Accelerated growth", button_type="primary", width=300, margin=10, 
 )
