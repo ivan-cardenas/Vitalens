@@ -381,6 +381,7 @@ def update_radio(event, well_name):
     name_pane.object = update_well_Name(well_name)
     update_indicators()
 
+
 def update_well_Name(well_name):
     """
     Update the well name display.
@@ -641,6 +642,7 @@ def update_layers():
     return m
 
 active_scenarios = set()
+text = ["## Scenario"]
 
 def update_title(new_title):
     """
@@ -683,16 +685,46 @@ def update_title(event):
     if Button3.value:
         text.append("Closed Small Wells")
         Measure1On()
+    global active_wells_df
+    global text
+    # if (Button1.value or Measures_Button.value == "Autonomous Growth" ):
+    #     if "Accelerated Growth" in text:
+    #         text.remove("Accelerated Growth")
+    #     text.append("Autonomous Growth")
+    # if (Button2.value or Measures_Button.value == "Accelerated Growth"):
+    #     if "Autonomous Growth" in text:
+    #         text.remove("Autonomous Growth")
+    #     text.append("Accelerated Growth")
+    # if Measures_Button.value == "Current State - 2024":
+    #     if "Accelerated Growth" in text:
+    #         text.remove("Accelerated Growth")
+    #     if "Autonomous Growth" in text:
+    #         text.remove("Autonomous Growth")
+    if Button3.value == True:
+        try: text.remove("Closed Small Wells")
+        finally: 
+            text.append("Closed Small Wells")
+            Measure1On()
     if Button3.value == False:
-        Measure1Off()
-    if Button4.value:
-        text.append("Closed Natura Wells")
-        Measure2On()
+        try: text.remove("Closed Small Wells")
+        except: print("Name does not exist -- skipping step")
+        finally:
+            Measure1Off()
+    if Button4.value == True:
+        try: text.remove("Closed Natura Wells")
+        finally:
+            text.append("Closed Natura Wells")
+            Measure2On()
     if Button4.value == False:
-        Measure2Off()
-    if Button5.value:
-        text.append("Use of Smart Meters")
-        Measure3On()
+        try: text.remove("Closed Natura Wells")
+        except: print("Name does not exist -- skipping step")
+        finally:
+            Measure2Off()
+    if Button5.value == True:
+        try: text.remove("Use of Smart Meters")
+        finally: 
+            text.append("Use of Smart Meters")
+            Measure3On()
     if Button5.value == False:
         Measure3Off()
     if Button6.value:
@@ -849,9 +881,10 @@ def update_indicators(arg=None):
     co2_pane.value= calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
     update_balance_opex()
+    update_balance_lzh_gauges()
     total_demand.value = calculate_total_Demand()
     lzh.value = calculate_lzh()
-    update_balance_lzh_gauges()
+
 
 # Initialize a dictionary to hold the active state and slider references
 active_wells = {}
@@ -963,8 +996,9 @@ textYears = pn.pane.HTML(
 
 textB1 = pn.pane.HTML(
     '''
-    <h3 align= "center" style="margin: 5px;"> Scenarios</h3><hr>
-    <b>Scenario with demand increase of 10% &#8628;</b>''', width=300, align="start"
+    <h3 align= "center" style="margin: 5px;"> Scenarios</h3><hr>'''
+    # <b>Scenario with demand increase of 10% &#8628;</b>'''
+    , width=300, align="start"
 )
 textB2 = pn.pane.HTML(
     '''<b>Scenario with demand increase of 35% &#8628;</b>''', width=300, align="start"
@@ -1059,7 +1093,7 @@ own_pane = pn.indicators.Number(
 )
 
 natura_pane = pn.indicators.Number(
-    name="Aproximate Natura 2000 \n Affected area",
+    name="Approximate Natura 2000 \n Affected area",
     value=calculate_affected_Natura(),
     format="{value:0.2f} Ha",
     default_color='#3850a0',
@@ -1073,7 +1107,7 @@ natura_pane = pn.indicators.Number(
 )
 
 co2_pane = pn.indicators.Number(
-    name="CO\u2028 Emmision Cost",
+    name="CO\u2028 Emmission Cost",
     value=calculate_total_CO2_cost(),
     format="{value:0,.2f} M\u20AC/yr",
     default_color='#3850a0',
@@ -1104,16 +1138,16 @@ total_demand = pn.indicators.Number(
 )
 
 lzh = pn.indicators.Gauge(
-    name="Leveringszekerheid",
+    name=f"Overall \n Leveringszekerheid",
     value=calculate_lzh(),
     bounds=(0, 150),
     format="{value} %",
-    colors=[(0.66, "#F19292"), (0.8, "#f2bf57"),(0.9, "#CBE2B0"), (1, "#bee3db")],
+    colors=[(0.66, "#D9534F"), (0.8, "#f2bf57"),(0.9, "#92C25B"), (1, "#8DCEC0")],
     custom_opts={
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
     },
-    align="center",
+    align=("center",'center')
 )
 lzh.param.watch(update_indicators, "value")
 
@@ -1125,33 +1159,18 @@ for area, value in balance_lzh_values.items():
         value=value,
         bounds=(0, 400),
         format="{value} %",
-        colors=[(0.4, "red"), (0.7, "green"), (1, "Lightblue")],
-        width=200,
-        title_size=12,
+        colors=[(0.25, "#D9534F"), (0.3, "#f2bf57"),(0.3375, "#92C25B"), (1, "#8DCEC0")],
         custom_opts={
-            "pointer": {"interStyle": {"color": "auto"}},
-            "detail": {"valueAnimation": True, "color": "inherit", "fontSize": 10},
-        },
-        align=("center", "center"),
+        "pointer": {"interStyle": {"color": "auto"}},
+        "detail": {"valueAnimation": True, "color": "inherit"},
+    },
+    align=("center",'center'),
     )
     balance_lzh_gauges[area] = gauge
 
-lzh_Balance = pn.template.SlidesTemplate(
-    title="Leveringszekerheid",
-    logo="https://raw.githubusercontent.com/holoviz/panel/main/doc/_static/logo_stacked.png",
-)
-lzh_layout = pn.GridSpec(sizing_mode="stretch_width", align="center", height=400)
 
-lzh_layout[0:1, 0] = lzh
-balance_lzh_layout = pn.GridSpec(sizing_mode="stretch_width")
-balance_lzh_layout[0, 0] = pn.Row(
-    balance_lzh_gauges["Reggeland"], balance_lzh_gauges["Dinkelland"]
-)
-balance_lzh_layout[1, 0] = pn.Row(
-    balance_lzh_gauges["Hof v Twente"], balance_lzh_gauges["Stedenband"]
-)
-
-lzh_layout[0, 1] = balance_lzh_layout
+lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center")
+                  )
 
 opexTabs = pn.Tabs(
     total_opex, *balance_opex_indicators.values(), align=("center", "center")
@@ -1179,7 +1198,7 @@ main2 = pn.Row(
     scroll=True
 )
 
-main1[0, 1] = pn.Column(app_title, lzh, Supp_dem, opexTabs, main2, sizing_mode="stretch_width")
+main1[0, 1] = pn.Column(app_title, lzhTabs, Supp_dem, opexTabs, main2, sizing_mode="stretch_width")
 
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
@@ -1206,6 +1225,7 @@ def total_extraction_update():
     map_pane.object = update_layers()
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
+
 
 total_extraction_update()
 Box.servable()
