@@ -672,19 +672,7 @@ def update_title(event):
     Args:
         event: The event object.
     """
-    global active_wells_df
-    text = ["## Scenario", " Current State"]
-    if Button1.value:
-        if "Accelerated Growth" in text:
-            text.remove("Accelerated Growth")
-        text.append("Autonomous Growth")
-    if Button2.value:
-        if "Autonomous Growth" in text:
-            text.remove("Autonomous Growth")
-        text.append("Accelerated Growth")
-    if Button3.value:
-        text.append("Closed Small Wells")
-        Measure1On()
+
     global active_wells_df
     global text
     # if (Button1.value or Measures_Button.value == "Autonomous Growth" ):
