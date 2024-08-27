@@ -838,6 +838,21 @@ def Measure3Off():
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Pop2022"] * demand_capita * 365
     ) / 1000000
+    
+def Measure4On():
+    """
+    Activate the fourth measure (importing water).
+    """
+    active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 0,0,0,0,0,0, "POINT (253802.6,498734.2)"]
+
+def Measure4Off():
+    """
+    Deactivate the fourth measure (importing water).
+    """
+    try:
+        active_wells_df.drop(active_wells_df[active_wells_df["Name"]=='Imports'].index, inplace=True)
+    except:
+        print("Row does not exist")
 
     
 def Reset(event):
