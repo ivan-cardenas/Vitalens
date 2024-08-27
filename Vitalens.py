@@ -764,42 +764,42 @@ def update_title(event):
         try: text.remove("Closed Small Wells")
         finally: 
             text.append("Closed Small Wells")
-            Measure1On()
+        Measure1On()
     if Button3.value == False:
         try: text.remove("Closed Small Wells")
         except: print("Name does not exist -- skipping step")
-        finally:
-            Measure1Off()
+
+        Measure1Off()
     if Button4.value == True:
         try: text.remove("Closed Natura Wells")
         finally:
             text.append("Closed Natura Wells")
-            Measure2On()
+        Measure2On()
     if Button4.value == False:
         try: text.remove("Closed Natura Wells")
         except: print("Name does not exist -- skipping step")
-        finally:
-            Measure2Off()
+        
+        Measure2Off()
     if Button5.value == True:
         try: text.remove("Use of Smart Meters")
         finally: 
             text.append("Use of Smart Meters")
-            Measure3On()
+        Measure3On()
     if Button5.value == False:
         try: text.remove("Use of Smart Meters")
         except: print("Name does not exist -- skipping step")
-        finally:
-            Measure3Off()
+
+        Measure3Off()
     if Button6.value == True:
         try: text.remove("Import Water")
         finally:
             text.append("Import Water")
-            Measure4On()
+        Measure4On()
     if Button6.value == False:
         try: text.remove("Import Water")
         except: print("Name does not exist -- skipping step")
-        finally:
-            Measure4Off()
+      
+        Measure4Off()
     
     app_title.object = " - ".join(text)
     print(text)
