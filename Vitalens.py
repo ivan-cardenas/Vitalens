@@ -725,11 +725,11 @@ text = ["## Scenario"]
 def update_scenarioTitle(new_title):
     global text
     base_title = "VITALENS - Current Situation 2024"
-    if Scenario_Button.value == "Autonomous Growth":
+    if Scenario_Button.value == "Autonomous Growth    +10% Demand":
         if ("Accelerated Growth" or base_title) in text:
             text.remove("Accelerated Growth")
         text.append(new_title)
-    if Scenario_Button.value == "Accelerated Growth":
+    if Scenario_Button.value == "Accelerated Growth    +35% Demand":
         if ("Autonomous Growth" or base_title) in text:
             text.remove("Autonomous Growth")
         text.append(new_title)
@@ -760,46 +760,34 @@ def update_title(event):
     #         text.remove("Accelerated Growth")
     #     if "Autonomous Growth" in text:
     #         text.remove("Autonomous Growth")
-    if Button3.value == True:
-        try: text.remove("Closed Small Wells")
-        finally: 
-            text.append("Closed Small Wells")
+    if Button3.value:
+        text.append("Closed Small Wells")
         Measure1On()
     if Button3.value == False:
-        try: text.remove("Closed Small Wells")
-        except: print("Name does not exist -- skipping step")
-
         Measure1Off()
-    if Button4.value == True:
-        try: text.remove("Closed Natura Wells")
-        finally:
-            text.append("Closed Natura Wells")
+        try: text.remove("Closed Small Wells")
+        except: print("Text not there")
+    if Button4.value:
+        text.append("Closed Natura Wells")
         Measure2On()
-    if Button4.value == False:
-        try: text.remove("Closed Natura Wells")
-        except: print("Name does not exist -- skipping step")
-        
+    if Button4.value == False:   
         Measure2Off()
-    if Button5.value == True:
-        try: text.remove("Use of Smart Meters")
-        finally: 
-            text.append("Use of Smart Meters")
+        try: text.remove("Closed Natura Wells")
+        except: print("Text not there")
+    if Button5.value:
+        text.append("Use of Smart Meters")
         Measure3On()
     if Button5.value == False:
-        try: text.remove("Use of Smart Meters")
-        except: print("Name does not exist -- skipping step")
-
         Measure3Off()
-    if Button6.value == True:
-        try: text.remove("Import Water")
-        finally:
-            text.append("Import Water")
+        try: text.remove("Use of Smart Meters")
+        except: print("Text not there")
+    if Button6.value:
+        text.append("Import Water")
         Measure4On()
-    if Button6.value == False:
-        try: text.remove("Import Water")
-        except: print("Name does not exist -- skipping step")
-      
+    if Button6.value == False:     
         Measure4Off()
+        try: text.remove("Import Water") 
+        except: print("Text not there")
     
     app_title.object = " - ".join(text)
     print(text)
@@ -1026,7 +1014,7 @@ for balance_area, layouts in balance_area_buttons.items():
     
 firstColumn = pn.Column(balance_area_Text,radioButton_layout)
     
-Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Autonomous Growth','Accelerated Growth'], button_type='warning', styles={
+Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Autonomous Growth    +10% Demand','Accelerated Growth    +35% Demand'], button_type='warning', styles={
     'width': '97%', }
                                              )
 Scenario_Button.param.watch(update_scenarios, "value")
@@ -1248,9 +1236,9 @@ for area, value in balance_lzh_values.items():
     gauge = pn.indicators.Gauge(
         name=f"LZH \n{area}",
         value=value,
-        bounds=(0, 400),
+        bounds=(0, 500),
         format="{value} %",
-        colors=[(0.25, "#D9534F"), (0.3, "#f2bf57"),(0.3375, "#92C25B"), (1, "#8DCEC0")],
+        colors=[(0.2, "#D9534F"), (0.24, "#f2bf57"),(0.27, "#92C25B"), (1, "#8DCEC0")],
         custom_opts={
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
