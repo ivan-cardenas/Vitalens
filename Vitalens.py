@@ -440,20 +440,19 @@ def update_well_Name(well_name):
     return f"{current_extraction:.2f} Mm\u00b3/yr"
 
 # Function to update the yearCal variable
-def update_year(event):
-    global yearCal
-    yearCal = event.new
-    if yearCal == 2022:
-        hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]
-    else:
-        hexagons_filterd["Current Pop"] = round(
-            hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((yearCal - 2022))), 0
-        )
-    hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * 0.1560 * 365
-    ) / 1000000
-    df_Hexagons.object = hexagons_filterd.head()  # Update the displayed DataFrame
-    update_indicators()  # Update the total demand indicator
+# def update_year(event):     
+#     if event.new == 2024:
+#         hexagons_filterd["Current Pop"] = round(
+#             hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((2024 - 2022))), 0
+#         )
+#     if event.new == 2035:
+#         hexagons_filterd["Current Pop"] = round(
+#             hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((2035 - 2022))), 0
+#         )
+#     hexagons_filterd["Water Demand"] = (
+#         hexagons_filterd["Current Pop"] * 0.1560 * 365
+#     ) / 1000000
+#     update_indicators()  # Update the total demand indicator
 
 def calculate_total_Demand():
     """
@@ -1038,7 +1037,6 @@ Button1 = pn.widgets.Button(
 Button1.param.watch(update_title, 'value')
 Button1.on_click(Scenario1)
 
-#Button1.on_click(Scenario1)
 Button2 = pn.widgets.Button(
     name="Accelerated growth", button_type="primary", width=300, margin=10, 
 )
