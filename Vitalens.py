@@ -411,10 +411,10 @@ def update_radio(event, well_name):
     update_indicators()
     
 def update_scenarios(event):
-    if event.new == "Autonomous Growth":
+    if event.new == "Autonomous Growth    +10% Demand":
         Scenario1()
         print('scenario 1 active')
-    if event.new == "Accelerated Growth":
+    if event.new == "Accelerated Growth    +35% Demand":
         print('scenario 2 active')
         Scenario2()
     if event.new == 'Current state - 2024':
@@ -423,7 +423,7 @@ def update_scenarios(event):
          hexagons_filterd["Pop2022"] * demand_capita * 365
         ) / 1000000
         update_scenarioTitle("VITALENS - Current Situation 2024")
-        update_indicators()
+    update_indicators()
     
 
 def update_well_Name(well_name):
