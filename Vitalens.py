@@ -70,6 +70,17 @@ hr.dashed {
   width: fit-content;
 }
 
+.bk-btn-warning{
+  background-position: center;
+  font-weight: 400 !important;
+  font-size: small !important;
+  line-height: 1;
+  margin: 3px 3px; 
+  padding: 5px 10px !important;
+  transition: background 0.8s;
+  width: fit-content;
+}
+
 .accordion-header button{
     color: #151931;
     background-color: #B4BFE4;
@@ -94,6 +105,7 @@ layers = fiona.listlayers(GPKG_FILE)  # Load all layers
 
 # Get Wells Attributes
 wells = gpd.read_file(GPKG_FILE, layer="Well_Capacity_Cost")
+industrial = gpd.read_file(GPKG_FILE, layer="Industrial_Extraction")
 
 # Convert the capacity columns to numeric, setting errors='coerce' will replace non-numeric values with NaN
 wells["Permit__Mm3_per_jr_"] = pd.to_numeric(
@@ -190,6 +202,10 @@ def calculate_total_extraction():
     total = active_wells_df[active_wells_df["Active"]]["Value"].sum()
     return total
 
+def calculate_industrial():
+    total = industrial["Current_Extraction_2019"].sum()
+    return total
+
 def calculate_available():
     """
     Calculate the available water by subtracting the current extraction from the maximum permitted extraction.
@@ -201,7 +217,8 @@ def calculate_available():
         active_wells_df[active_wells_df["Active"]==True]["Max_permit"].sum()
         - active_wells_df[active_wells_df["Active"]==True]["Value"].sum()
     )
-    return total
+    industrial_total = industrial["Licensed"].sum() - industrial["Current_Extraction_2019"].sum()
+    return total + industrial_total
 
 def calculate_ownership():
     """
@@ -327,6 +344,18 @@ def toggle_well(event, well_name):
         well_name (str): The name of the well.
     """
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Active"] = event.new
+    update_indicators()
+    map_pane.object = update_layers()
+    
+def toggle_industrial(event, location):
+    """
+    Toggle the active state of a well based on a checkbox.
+
+    Args:
+        event: The event object.
+        well_name (str): The name of the well.
+    """
+    industrial.loc[industrial["Location"] == location, "Active"] = event.new
     update_indicators()
     map_pane.object = update_layers()
 
@@ -541,6 +570,10 @@ popup_well = folium.GeoJsonPopup(
 popup_hex = folium.GeoJsonPopup(
     fields=["Balance Area", "Water Demand", "Current Pop", "Type"],
 )
+popup_industrial = folium.GeoJsonPopup(
+    fields=["Place", "Licensed", "Current_Extraction_2019"],
+    aliases=["Location", "Licensed Extraction", "Current Extraction"]
+)
 icon_path = "./Assets/Water Icon.png"
 icon = folium.CustomIcon(
     icon_path,
@@ -593,6 +626,20 @@ def update_layers():
             )
         ),
     ).add_to(m)
+    
+    folium.GeoJson(
+        industrial,
+        name="Industrial Water Extraction",
+        zoom_on_click=True,
+        popup=popup_industrial,
+        tooltip=folium.GeoJsonTooltip(fields=["Place"], aliases=["Place:"]),
+        marker=folium.Marker(
+            icon=folium.Icon(
+                icon_color="#d9534f", icon="industry", prefix="fa"
+            )
+        ),
+    ).add_to(m)
+    
 
     hex = folium.GeoJson(
         hexagons_filterd,
@@ -897,6 +944,7 @@ def update_indicators(arg=None):
     excess_cap.value = calculate_available()
     own_pane.value = calculate_ownership()
     natura_pane.value = calculate_affected_Natura()
+    industrial_cap.value=calculate_industrial()
     co2_pane.value= calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
     update_balance_opex()
@@ -951,7 +999,9 @@ for index, row in wells.iterrows():
     })
     
     NamePane = pn.pane.Str(update_well_Name(wellName), styles={
-        'font-family': 'Roboto'
+        'font-family': 'Roboto',
+        'font-size': "16px",
+        'font-weight': 'bold'
     })
     NameState = pn.Row(NameP, pn.Spacer(), checkbox)
     Well_radioB = pn.Column(NameState, NamePane, radio_group, styles=miniBox_style)
@@ -963,6 +1013,11 @@ for index, row in wells.iterrows():
     
     # Store the active state and radio group reference along with the NamePane
     active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": NamePane}
+    
+# Create HTML Text for Wells Tab
+balance_area_Text = pn.pane.HTML('''
+    <h3 align= "center" style="margin: 5px;"> Balance Areas</h3><hr>'''
+    , width=300, align="start")
 
 # Create a layout for the radio buttons
 radioButton_layout = pn.Accordion(styles={'width': '97%', 'color':'#151931'})
@@ -970,9 +1025,11 @@ for balance_area, layouts in balance_area_buttons.items():
     balance_area_column = pn.Column(*layouts)
     radioButton_layout.append((balance_area, balance_area_column))
     
+firstColumn = pn.Column(balance_area_Text,radioButton_layout)
+    
 Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Autonomous Growth','Accelerated Growth'], button_type='warning', styles={
-    'width': '97%', 'margin': '10px 2px'
-})
+    'width': '97%', }
+                                             )
 Scenario_Button.param.watch(update_scenarios, "value")
 
 Button1 = pn.widgets.Button(
@@ -1054,7 +1111,7 @@ textEnd = pn.pane.HTML(
 
 scenario_layout = pn.Column(textB1, Scenario_Button, textB3, Button3, textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR)
 
-tabs = pn.Tabs(("Well Capacities", radioButton_layout), ("Scenarios", scenario_layout))
+tabs = pn.Tabs(("Well Capacities", firstColumn), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
 map_pane = pn.pane.plot.Folium(update_layers(), sizing_mode="stretch_both")
@@ -1094,6 +1151,17 @@ balance_opex_indicators = {
     for balance, value in balance_opex.items()
 }
 
+industrial_cap = pn.indicators.Number(
+    name="Industrial Extraction",
+    value=calculate_industrial(),
+    format="{value:0.2f} Mm\u00b3/yr",
+    default_color='#3850a0',
+    font_size="20pt",
+    title_size="12pt",
+    align="center",
+    sizing_mode="stretch_width"
+)
+
 excess_cap = pn.indicators.Number(
     name="Excess Capacity",
     value=calculate_available(),
@@ -1132,7 +1200,7 @@ natura_pane = pn.indicators.Number(
 )
 
 co2_pane = pn.indicators.Number(
-    name="CO\u2028 Emmission Cost",
+    name="CO\u2082 Emmission Cost",
     value=calculate_total_CO2_cost(),
     format="{value:0,.2f} M\u20AC/yr",
     default_color='#3850a0',
@@ -1149,7 +1217,7 @@ drought_pane = pn.indicators.Number(
     title_size="12pt",
 )
 
-df_display = pn.pane.Markdown(update_df_display())
+# df_display = pn.pane.Markdown(update_df_display())
 df_Hexagons = pn.pane.DataFrame(hexagons_filterd.head(), name="Hexagons data")
 
 total_demand = pn.indicators.Number(
@@ -1194,7 +1262,7 @@ for area, value in balance_lzh_values.items():
     balance_lzh_gauges[area] = gauge
 
 
-lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center")
+lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"),  sizing_mode="scale_width"
                   )
 
 opexTabs = pn.Tabs(
@@ -1206,6 +1274,7 @@ Supp_dem = pn.Row(
 )
 
 Env_pane = pn.Column(co2_pane, drought_pane, sizing_mode="scale_width")
+Extra_water_pane = pn.Column(industrial_cap,excess_cap, sizing_mode="scale_width")
 
 app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
     "text-align": "right",
@@ -1218,7 +1287,7 @@ main1[0, 0] = pn.Row(map_pane)
 main2 = pn.Row(
     natura_pane,
     Env_pane,
-    excess_cap,
+    Extra_water_pane,
     sizing_mode="scale_width",
     scroll=True
 )
@@ -1240,7 +1309,7 @@ def total_extraction_update():
     Update the total extraction and related indicators.
     """
     total_extraction.value = calculate_total_extraction()
-    df_display.object = update_df_display()
+    # df_display.object = update_df_display()
     total_opex.value = calculate_total_OPEX()
     total_demand.value = calculate_total_Demand()
     update_balance_opex()
