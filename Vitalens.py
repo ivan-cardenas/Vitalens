@@ -699,7 +699,7 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
         popup=popup_hex,
     ).add_to(m)
 
-    m.add_child(colormap)
+#     m.add_child(colormap)
 
     folium.GeoJson(
         hexagons_filterd,
@@ -753,7 +753,7 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
     ).add_to(m)
     
-    folium.LayerControl().add_to(m)
+#     folium.LayerControl().add_to(m)
 
     return m
 
