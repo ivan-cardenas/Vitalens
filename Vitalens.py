@@ -6,6 +6,7 @@ import fiona
 from bokeh.models.formatters import PrintfTickFormatter
 import folium
 from shapely.geometry import shape, Polygon
+from lonboard import Map, PathLayer
 import branca
 from functools import partial
 
@@ -28,6 +29,10 @@ cssStyle = ['''
   --panel-on-background-color: #151931 !important;
 }
 
+:host(.active) .bar {
+    background-color: #c2d5f7;    
+}
+
 #sidebar, #main {
     background-color: #F2F2ED !important;
 }
@@ -40,6 +45,11 @@ hr.dashed {
 .title {
   font-weight: 600 !important;
 }
+
+.bar {
+        background-color: #b1b1c9;
+    }
+
 .bk-btn {
   border-radius: 0.5em !important;
 }
@@ -88,6 +98,21 @@ hr.dashed {
 '''
 ]
 
+miniBox_style = {
+    'background': '#e9e9e1',
+    'border': '0.7px solid',
+    'margin': '10px',
+    "box-shadow": '4px 2px 6px #2a407e',
+    "display": "flex"
+}
+
+buttonGroup_style = {
+    'flex-wrap': 'wrap',
+    'display': 'flex'
+}
+
+
+
 # Initialize extensions
 pn.config.global_css = cssStyle
 pn.config.css_files = cssStyle
@@ -98,6 +123,7 @@ pn.extension("echarts")
 pn.extension(
     "tabulator", "ace", css_files=["https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"]
 )
+
 
 # Load the GeoPackage file
 GPKG_FILE = "./Assets/Thematic_Data.gpkg"
@@ -151,9 +177,24 @@ active_wells_df = gpd.GeoDataFrame(
 )
 active_wells_df.astype({"Num_Wells": "int32", "Ownership": "int32"}, copy=False)
 
+cities = gpd.read_file(GPKG_FILE, layer="CitiesHexagonal")
+
+cities_clean = gpd.GeoDataFrame(
+    {
+        "cityName" : cities["statnaam"],
+        "Population 2022": cities["SUM_Pop_2022"],
+        "Water Demand": cities["SUM_Water_Demand_m3_YR"]/ 1000000,
+        "geometry" : cities["geometry"]
+    })
+
+cities_clean.loc[cities_clean["cityName"].isna(), "Water Demand"] = None
+print(cities_clean)
+
 yearCal = 2022
 growRate = 0.0062
-demand_capita = 0.1560
+industrialDemand = 0.2
+demand_capita = 0.135*industrialDemand
+
 
 # Get Destination Attributes
 hexagons = gpd.read_file(GPKG_FILE, layer="H3_Lvl8")
@@ -345,7 +386,7 @@ def toggle_well(event, well_name):
     """
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Active"] = event.new
     update_indicators()
-    map_pane.object = update_layers()
+    #map_pane.object = update_layers()
     
 def toggle_industrial(event, location):
     """
@@ -357,7 +398,7 @@ def toggle_industrial(event, location):
     """
     industrial.loc[industrial["Location"] == location, "Active"] = event.new
     update_indicators()
-    map_pane.object = update_layers()
+    #map_pane.object = update_layers()
 
 def update_slider(event, well_name):
     """
@@ -388,7 +429,7 @@ def update_radio(event, well_name):
     """
     current_value = wells.loc[wells["Name"] == well_name, "Extraction_2023__Mm3_per_jr_"].values[0]
     max_value = wells.loc[wells["Name"] == well_name, "Permit__Mm3_per_jr_"].values[0]
-    agreement = wells.loc[wells["Name"]== well_name, "Agreement__Mm3_per_jr_"].values[0]
+    # agreement = wells.loc[wells["Name"]== well_name, "Agreement__Mm3_per_jr_"].values[0]
     
     if event.new == "-10%":
         new_value = current_value * 0.9
@@ -402,8 +443,7 @@ def update_radio(event, well_name):
         new_value = current_value * 1.2
     elif event.new == "Maximum Permit":
         new_value = max_value
-    elif event.new == "Agreement":
-        new_value = agreement
+   
     
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Value"] = new_value
     name_pane = active_wells[well_name]["name_pane"]
@@ -503,21 +543,22 @@ def calculate_lzh_by_balance():
     """
     lzh_by_balance = {}
     balance_areas = active_wells_df["Balance area"].unique()
+
     for area in balance_areas:
-        total_extraction = active_wells_df[
-            active_wells_df["Balance area"] == area
-        ][  # Extraction per area
-            "Value"
+        total_extraction = active_wells_df.loc[
+            active_wells_df["Balance area"] == area, "Value"
         ].sum()
-        total_demand = hexagons_filterd[
-            hexagons_filterd["Balance Area"] == area
-        ][  # Demand per area
-            "Water Demand"
+
+        total_demand = hexagons_filterd.loc[
+            hexagons_filterd["Balance Area"] == area, "Water Demand"
         ].sum()
+
         lzh_by_balance[area] = (
             round((total_extraction / total_demand) * 100, 2) if total_demand else 0
         )
+    
     return lzh_by_balance
+
 
 def update_balance_lzh_gauges():
     """
@@ -567,7 +608,8 @@ popup_well = folium.GeoJsonPopup(
     aliases=["Well Name", "Balance Area", "Extraction in Mm\u00b3/yr"],
 )
 popup_hex = folium.GeoJsonPopup(
-    fields=["Balance Area", "Water Demand", "Current Pop", "Type"],
+    fields=["cityName", "Water Demand", "Population 2022"],
+    aliases=["City", "Water Demand in m\u00b3/yr", "Current Pop",],
 )
 popup_industrial = folium.GeoJsonPopup(
     fields=["Place", "Licensed", "Current_Extraction_2019"],
@@ -581,8 +623,8 @@ icon = folium.CustomIcon(
 
 colormap = branca.colormap.LinearColormap(
     ["#caf0f8", "#90e0ef", "#00b4d8", "#0077b6", "#03045e"],
-    vmin=hexagons_filterd["Water Demand"].quantile(0.0),
-    vmax=hexagons_filterd["Water Demand"].quantile(1),
+    vmin=cities_clean["Water Demand"].quantile(0.0),
+    vmax=cities_clean["Water Demand"].quantile(1),
     caption="Total water demand in Mm\u00b3/yr",
 )
 
@@ -599,19 +641,16 @@ def calculate_centroid(coordinates):
     polygon = Polygon(coordinates)
     return polygon.centroid.y, polygon.centroid.x
 
-def update_layers():
+def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
     """
     Update the layers on the map.
 
     Returns:
         folium.Map: Updated Folium map.
     """
-    global active_wells_df
-    m = folium.Map(
-        location=[52.38, 6.7], zoom_start=10,
-        tiles="Cartodb Positron"
-    ) 
-    active = active_wells_df[active_wells_df["Active"]==True]
+    m
+    
+    active = wellsLayer[wellsLayer["Active"]==True]
     
     folium.GeoJson(
         active,
@@ -621,28 +660,28 @@ def update_layers():
         tooltip=folium.GeoJsonTooltip(fields=["Name"], aliases=["Well Name:"]),
         marker=folium.Marker(
             icon=folium.Icon(
-                icon_color="#F9F6EE", icon="arrow-up-from-ground-water", prefix="fa"
+                icon_color="#f3f3f3", icon="arrow-up-from-ground-water", prefix="fa", color='cadetblue'
             )
         ),
     ).add_to(m)
     
     folium.GeoJson(
-        industrial,
+        industryLayer,
         name="Industrial Water Extraction",
         zoom_on_click=True,
         popup=popup_industrial,
         tooltip=folium.GeoJsonTooltip(fields=["Place"], aliases=["Place:"]),
         marker=folium.Marker(
             icon=folium.Icon(
-                icon_color="#d9534f", icon="industry", prefix="fa"
+                icon_color="#d9534f", icon="industry", prefix="fa", color='lightred'
             )
         ),
     ).add_to(m)
     
 
     hex = folium.GeoJson(
-        hexagons_filterd,
-        name="Hexagons",
+        cities_clean,
+        name="City Demand",
         style_function=lambda x: {
             "fillColor": (
                 colormap(x["properties"]["Water Demand"])
@@ -651,7 +690,7 @@ def update_layers():
             ),
              "color": (
                 "darkgray"
-                if x["properties"]["Balance Area"] is not None
+                if x["properties"]["cityName"] is not None
                 else "transparent"
                 ),
             "fillOpacity": 0.8,
@@ -707,7 +746,7 @@ def update_layers():
         name="Balance Areas",
         style_function=lambda x: {
             "fillColor": "transparent",
-            "color": "#ce9ad6",
+            "color": "#93419F",
             "weight": 3
         },
         show=True,
@@ -802,10 +841,10 @@ def Scenario1():
     Args:
         event: The event object.
     """
-    global hexagons_filterd
-    demand_capita = 0.156*1.1
+    demand_capita = 0.156
+    hexagons_filterd["Current Pop"]*1.1
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * 365
+        hexagons_filterd["Current Pop"] * demand_capita * 365 
     ) / 1000000
     update_scenarioTitle("Autonomous Growth")
     print("Scenario 1 ran perfectly")
@@ -821,25 +860,30 @@ def Scenario2():
     """
 
 def Scenario2():
-    global hexagons_filterd
-    demand_capita = 0.156*1.35
+    demand_capita = 0.156
+    hexagons_filterd["Current Pop"]*1.35
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
+        
     update_scenarioTitle("Accelerated Growth")
     update_indicators()
 
 def Measure1On():
-    global active_wells_df
     condition = active_wells_df["Max_permit"] < 5.00
     active_wells_df.loc[condition, "Active"] = False
     
+    # Update the checkboxes to reflect the new state
+    for well_name in active_wells_df.loc[condition, "Name"]:
+        checkboxes[well_name].value = False  # Uncheck the checkbox
 
 def Measure1Off():
-    global active_wells_df
     condition = active_wells_df["Max_permit"] >= 5.00
     active_wells_df.loc[condition, "Active"] = True
 
+    # Update the checkboxes to reflect the new state
+    for well_name in active_wells_df.loc[condition, "Name"]:
+        checkboxes[well_name].value = True  # Check the checkbox
 
 def Measure2On():
     """
@@ -847,6 +891,10 @@ def Measure2On():
     """
     active_wells_df.loc[active_wells_df["Name"] == "Archemerberg", "Active"] = False
     active_wells_df.loc[active_wells_df["Name"] == "Nijverdal", "Active"] = False
+    
+    # Update the checkboxes to reflect the new state
+    checkboxes["Archemerberg"].value = False
+    checkboxes["Nijverdal"].value = False
 
 def Measure2Off():
     """
@@ -855,13 +903,17 @@ def Measure2Off():
     active_wells_df.loc[active_wells_df["Name"] == "Archemerberg", "Active"] = True
     active_wells_df.loc[active_wells_df["Name"] == "Nijverdal", "Active"] = True
     
+    # Update the checkboxes to reflect the new state
+    checkboxes["Archemerberg"].value = True
+    checkboxes["Nijverdal"].value = True
+    
 def Measure3On():
     """
     Activate the third measure (using smart meters).
     """
     demand_capita = 0.156 * 0.9
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Pop2022"] * demand_capita * 365
+        hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
 
 def Measure3Off():
@@ -870,7 +922,7 @@ def Measure3Off():
     """
     demand_capita = 0.156
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Pop2022"] * demand_capita * 365
+        hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
     
 def Measure4On():
@@ -943,26 +995,17 @@ def update_indicators(arg=None):
 # Initialize a dictionary to hold the active state and slider references
 active_wells = {}
 
-miniBox_style = {
-    'background': '#e9e9e1',
-    'border': '0.7px solid',
-    'margin': '10px',
-    "box-shadow": '4px 2px 6px #2a407e',
-    "display": "flex"
-}
-
-buttonGroup_style = {
-    'flex-wrap': 'wrap',
-    'display': 'flex'
-}
-
 # Initialize a dictionary to hold the balance area layouts
 balance_area_buttons = {}
+
+# Initialize a dictionary to hold the sliders
+checkboxes = {}
 
 # Setup Well Radio Buttons
 Radio_buttons = []
 Well_radioB = []
-options = ["-10%", "-20%", "Current", "+10%", "+20%", "Maximum Permit", "Agreement"]
+options = ["-10%", "-20%", "Current", "+10%", "+20%", "Maximum Permit"]
+
 for index, row in wells.iterrows():
     wellName = row["Name"]
     current_value = row["Extraction_2023__Mm3_per_jr_"]
@@ -975,9 +1018,12 @@ for index, row in wells.iterrows():
     )
     
     # Add Checkbox and listeners
-    checkbox = pn.widgets.Checkbox(name="Active", value=True)
+    checkbox = pn.widgets.Switch(name="Active", value=True)
     checkbox.param.watch(partial(toggle_well, well_name=wellName), "value")
     radio_group.param.watch(partial(update_radio, well_name=wellName), "value")
+    
+    # Store the checkbox in the dictionary for later updates
+    checkboxes[wellName] = checkbox
     
     NameP = pn.pane.Str(wellName, styles={
         'font-size': "14px",
@@ -1000,6 +1046,10 @@ for index, row in wells.iterrows():
     
     # Store the active state and radio group reference along with the NamePane
     active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": NamePane}
+
+print(checkboxes)    
+    
+    
     
 # Create HTML Text for Wells Tab
 balance_area_Text = pn.pane.HTML('''
@@ -1100,7 +1150,9 @@ scenario_layout = pn.Column(textB1, Scenario_Button, textB3, Button3, textB4, Bu
 tabs = pn.Tabs(("Well Capacities", firstColumn), ("Scenarios", scenario_layout))
 
 # MAIN WINDOW
-map_pane = pn.pane.plot.Folium(update_layers(), sizing_mode="stretch_both")
+
+map_pane = pn.panel(
+    pn.bind(update_layers, wellsLayer=active_wells_df, industryLayer=industrial,sizing_mode="stretch_both"))
 
 total_extraction = pn.indicators.Number(
     name="Total Supply",
@@ -1204,7 +1256,7 @@ drought_pane = pn.indicators.Number(
 )
 
 # df_display = pn.pane.Markdown(update_df_display())
-df_Hexagons = pn.pane.DataFrame(hexagons_filterd.head(), name="Hexagons data")
+#df_Hexagons = pn.pane.DataFrame(hexagons_filterd.head(), name="Hexagons data")
 
 total_demand = pn.indicators.Number(
     name="Total Water Demand",
