@@ -593,6 +593,62 @@ def normalize_height(value, min_value, max_value, target_min, target_max):
     else: 
         return target_min + (value - min_value) / (max_value - min_value) * (target_max - target_min)
 
+# format data for use in pydeck
+hexagons_4326=json.loads(hexagons_filterd.to_json(to_wgs84=True))
+wells_4326=json.loads(active_wells_df.to_json(to_wgs84=True))
+print(hexagons_4326)
+
+# Define DeckGL layers
+hexagon_layer = pdk.Layer(
+    "GeoJsonLayer",
+    hexagons_4326,
+    # get_polygon="geometry.coordinates",
+    get_fill_color="[0, (1 - properties['Water Demand']) * 123, 167, 240]",
+    pickable=True,
+    extruded=True,
+    stroked=True,
+    get_line_color='[255,255,255]',
+    get_elevation="properties['Water Demand']*2000"
+)
+
+well_layer = pdk.Layer(
+    "GeoJsonLayer",
+    wells_4326,
+    get_position="[geometry.coordinates[0], geometry.coordinates[1]]",
+    get_fill_color="[200, 30, 0, 160]",
+    get_radius=400,
+    pickable=True,
+    extruded=True,
+    get_elevation="properties.value*5000"
+)
+
+
+# Update the map initialization to use DeckGL
+initial_view_state = pdk.ViewState(
+    latitude=52.38,
+    longitude=6.7,
+    zoom=10,
+    pitch=50,
+)
+
+# define the tool tip for Map
+tooltip = ""
+tooltip += "<div style=''>Well: {Name}</div>"
+tooltip += "<div style=''>Production: {Value}</div>"
+# tooltip += "<div style=''>Well: {properties.Name}</div>"
+# tooltip += "<div style=''>Well: {properties.Name}</div>"
+
+deckgl_map = pdk.Deck(
+    layers=[well_layer,hexagon_layer],
+    initial_view_state=initial_view_state,
+    tooltip={
+        'html': tooltip,
+        'style': {
+            'color': 'white'
+        }
+    }
+)
+
 # Format data for use in pydeck
 hexagons_4326 = hexagons_filterd.to_crs(epsg=4326)
 wells_4326 = active_wells_df.to_crs(epsg=4326)
@@ -752,8 +808,19 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
         show=True,
         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
     ).add_to(m)
+#     folium.GeoJson(
+#         balance_areas,
+#         name="Balance Areas",
+#         style_function=lambda x: {
+#             "fillColor": "transparent",
+#             "color": "#ce9ad6",
+#             "weight": 2
+#         },
+#         show=False,
+#         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
+#     ).add_to(m)
     
-#     folium.LayerControl().add_to(m)
+# #     folium.LayerControl().add_to(m)
 
     return m
 
