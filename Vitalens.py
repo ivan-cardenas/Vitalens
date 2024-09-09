@@ -35,6 +35,11 @@ cssStyle = ['''
     background-color: #c2d5f7;    
 }
 
+:host(.bk-above) .bk-header .bk-tab{
+    border: #F2F2ED !important;
+    background: #00000014 !important
+}
+
 #sidebar, #main {
     background-color: #F2F2ED !important;
 }
@@ -90,6 +95,12 @@ hr.dashed {
     color: #151931;
     background-color: #B4BFE4;
 }
+
+
+.bk-tab.bk-active {
+    background: #d3d3cf !imporant;
+    color: #d9534f !important;
+}
 '''
 ]
 
@@ -128,7 +139,7 @@ layers = fiona.listlayers(GPKG_FILE)  # Load all layers
 # Get Wells Attributes
 wells = gpd.read_file(GPKG_FILE, layer="Well_Capacity_Cost")
 industrial = gpd.read_file(GPKG_FILE, layer="Industrial_Extraction")
-
+mainPipes = gpd.read_file(GPKG_FILE, layer="Pipes_Topological")
 
 
 # Convert the capacity columns to numeric, setting errors='coerce' will replace non-numeric values with NaN
@@ -161,6 +172,7 @@ active_wells_df = gpd.GeoDataFrame(
         "Max_permit": wells["Permit__Mm3_per_jr_"],
         "Balance area": wells["Balansgebied"],
         "Active": [True] * len(wells),
+        "Current Extraction": wells["Extraction_2023__Mm3_per_jr_"],
         "Value": wells["Extraction_2023__Mm3_per_jr_"],
         "OPEX_m3": wells["totOpex_m3"],
         "Drought_m3": wells["DroughtDamage_EUR_m3"],
@@ -170,6 +182,7 @@ active_wells_df = gpd.GeoDataFrame(
         * wells["Extraction_2023__Mm3_per_jr_"]
         * 1000000,
         "OPEX": wells["totOpex_m3"] * wells["Extraction_2023__Mm3_per_jr_"] * 1000000,
+        "CAPEX": 0,
         "geometry": wells["geometry"],
     }
 )
@@ -186,7 +199,6 @@ cities_clean = gpd.GeoDataFrame(
     })
 
 cities_clean.loc[cities_clean["cityName"].isna(), "Water Demand"] = None
-print(cities_clean)
 
 yearCal = 2022
 growRate = 0.0062
@@ -284,8 +296,24 @@ def calculate_total_OPEX():
     Returns:
         float: Total OPEX in million EUR/yr.
     """
+    active_wells_df["OPEX"] = active_wells_df["OPEX_m3"] * active_wells_df["Value"] 
+
     total = (active_wells_df[active_wells_df["Active"]]["OPEX"]).sum()
-    return total/1000000
+    return total
+
+def calculate_total_CAPEX():
+    # CAPEX is the difference between Value and current extraction, if Value is higher
+    active_wells_df["CAPEX"] = np.where(
+        active_wells_df["Value"] > active_wells_df["Current Extraction"],
+        (active_wells_df["Value"] - active_wells_df["Current Extraction"]) * 10,  # You can adjust the multiplier as needed
+        0  # CAPEX is 0 if Value is less than or equal to current extraction
+    )
+
+    # Sum the CAPEX for all active wells
+    total = active_wells_df[active_wells_df["Active"]]["CAPEX"].sum()
+    return total   # Convert to million EUR
+#   
+
 
 def calculate_total_OPEX_by_balance():
     """
@@ -298,13 +326,13 @@ def calculate_total_OPEX_by_balance():
         active_wells_df[active_wells_df["Active"]].groupby("Balance area")["OPEX"].sum()
     )/1000000
 
-def update_balance_opex():
-    """
-    Update OPEX indicators for balance areas.
-    """
-    balance_opex = calculate_total_OPEX_by_balance()
-    for balance, indicator in balance_opex_indicators.items():
-        indicator.value = balance_opex.get(balance, 0)
+# def update_balance_opex():
+#     """
+#     Update OPEX indicators for balance areas.
+#     """
+#     balance_opex = calculate_total_OPEX_by_balance()
+#     for balance, indicator in balance_opex_indicators.items():
+#         indicator.value = balance_opex.get(balance, 0)
 
 def calculate_total_envCost():
     """
@@ -342,7 +370,15 @@ def calculate_affected_Natura():
         & (hexagons_filterd["Type"] == "Source and Restricted")
     ]
     total = restricted.shape[0]
-    return total * 629387.503078 / 100000
+    ha = total * 629387.503078 / 100000
+    print ("Affected", ha)
+    return ha
+
+def generate_area_SVG (n):
+    SVG = '<svg width="64px" height="64px" viewBox="0 -199.5 1423 1423" class="icon" version="1.1" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M105.124 107.703h1142.109v796.875h-1142.109v-796.875z" fill="#C0D36F"></path><path d="M1069.108 336.219h157.266v353.672h-157.266zM128.562 336.219h157.266v353.672h-157.266z" fill="#FFFFFF"></path><path d="M1120.438 90.125h-887.813c-78.646 0.133-142.367 63.853-142.5 142.488v558.528c0.133 78.647 63.853 142.367 142.488 142.5h887.826c78.646-0.133 142.367-63.853 142.5-142.488v-558.293c0 0 0 0 0 0 0-78.747-63.771-142.601-142.488-142.733zM651.688 626.844c-53.93-11.239-93.867-58.377-93.867-114.844s39.938-103.605 93.106-114.711l0.761 229.554zM698.563 397.156c53.93 11.239 93.867 58.377 93.867 114.844s-39.938 103.605-93.106 114.711l-0.761-229.554zM136.062 347.937h101.25c0 0 0 0 0 0 23.429 0 42.421 18.992 42.421 42.421v243.516c0 0 0 0 0 0 0 23.429-18.992 42.421-42.421 42.421 0 0 0 0 0 0h-101.25v-328.125zM136.062 791.375v-68.438h101.25c49.317 0 89.297-39.98 89.297-89.297v-242.578c0-49.317-39.98-89.297-89.297-89.297 0 0 0 0 0 0h-101.25v-68.438c0.133-52.759 42.867-95.492 95.613-95.625h420.011v212.813c-79.347 12.438-139.329 80.308-139.329 162.188 0 81.879 59.982 149.75 138.403 162.068l0.927 212.932h-419.063c-0.209 0.002-0.457 0.003-0.705 0.003-52.942 0-95.859-42.918-95.859-95.859 0-0.165 0.001-0.331 0.002-0.497zM1120.438 887h-421.875v-212.813c79.347-12.438 139.329-80.308 139.329-162.188 0-81.879-59.982-149.75-138.403-162.068l-0.927-212.932h421.875c52.759 0.133 95.492 42.866 95.625 95.613v68.45h-95.625c0 0 0 0 0 0-49.317 0-89.297 39.98-89.297 89.297v243.516c0 49.317 39.979 89.297 89.297 89.297 0 0 0 0 0 0h93.75v68.438c-0.249 52.012-41.883 94.217-93.648 95.39zM1216.063 347.937v328.125h-95.625c0 0 0 0 0 0-23.429 0-42.421-18.992-42.421-42.421 0 0 0 0 0 0v-242.578c0 0 0 0 0 0 0-23.429 18.992-42.421 42.421-42.421 0 0 0 0 0 0h93.75z" fill="#25274B"></path></g></svg>'
+    fig = pn.pane.HTML(SVG*(int(n/0.5)))
+    
+    return fig
 
 def calculate_total_CO2_cost():
     """
@@ -449,6 +485,11 @@ def update_radio(event, well_name):
    
     
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Value"] = new_value
+    print('error here')
+    opex_m3 = active_wells_df.loc[active_wells_df["Name"] == well_name, "OPEX_m3"]
+    print('no ut us here')
+    active_wells_df.loc[active_wells_df["Name"] == well_name, "OPEX"] = new_value * opex_m3
+    
     name_pane = active_wells[well_name]["name_pane"]
     name_pane.object = update_well_Name(well_name)
     update_indicators()
@@ -705,6 +746,19 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
     ).add_to(m)
 
     m.add_child(colormap)
+    
+    folium.GeoJson(
+        mainPipes,
+        name="Main Pipelines",
+        style_function= lambda x:{ 
+            "color": "#d9534f",
+            "weight": (4 if x["properties"]["Diameter_mm"]>350
+                       else(2 if x["properties"]["Diameter_mm"]>250
+                       else 1)),
+            "Opacity": 0.6,
+        },
+        show=False
+    ).add_to(m)
 
     folium.GeoJson(
         hexagons_filterd,
@@ -746,6 +800,8 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
         show= False,
     ).add_to(m)
     
+    
+    
     folium.GeoJson(
         balance_areas,
         name="Balance Areas",
@@ -757,6 +813,8 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
         show=True,
         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
     ).add_to(m)
+    
+    
     
     folium.LayerControl().add_to(m)
 
@@ -783,7 +841,7 @@ def update_scenarioTitle(new_title):
         if ("Autonomous Growth" or base_title) in text:
             text.remove("Autonomous Growth")
         text.append(new_title)
-    if Scenario_Button.value == "Current State - 2024":
+    if Scenario_Button.value == "VITALENS - Current Situation 2024":
         if "Accelerated Growth" in text:
             text.remove("Accelerated Growth")
         if "Autonomous Growth" in text:
@@ -798,30 +856,37 @@ def update_scenarioTitle(new_title):
 
 def update_title(event):
     if Button3.value:
-        text.append("Closed Small Wells")
+        if "Closed Small Wells" in text:
+            print("Text already there")
+        else: text.append("Closed Small Wells")
         Measure1On()
     if Button3.value == False:
         Measure1Off()
-        try: text.remove("Closed Small Wells")
-        except: print("Text not there")
+        if "Closed Small Wells" in text:
+            text.remove("Closed Small Wells")
+        else:
+            print("Text not there")
     if Button4.value:
-        text.append("Closed Natura Wells")
+        if "Closed Natura Wells" in text:
+             print("Text already there")
+        else: text.append("Closed Natura Wells")
         Measure2On()
     if Button4.value == False:   
         Measure2Off()
-        try: text.remove("Closed Natura Wells")
-        except: print("Text not there")
+        if "Closed Natura Wells" in text:
+            text.remove("Closed Natura Wells")
+        else: print("Text not there")
     if Button6.value:
         text.append("Import Water")
         Measure4On()
     if Button6.value == False:     
         Measure4Off()
-        try: text.remove("Import Water") 
-        except: print("Text not there")
+        if "Import Water" in text:
+            text.remove("Import Water") 
+        else: print("Text not there")
     
     app_title.object = " - ".join(text)
     print(text)
-    print(active_wells_df.head())
     update_indicators()
     
 
@@ -917,15 +982,16 @@ def Measure4On():
     """
     Activate the fourth measure (importing water).
     """
-    active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 0,0,0,0,0,0, "POINT (253802.6,498734.2)"]
+    active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 4.38, 0,0,0,0,0,0,0, "POINT (253802.6,498734.2)"]
 
 def Measure4Off():
     """
     Deactivate the fourth measure (importing water).
     """
-    try:
-        active_wells_df.drop(active_wells_df[active_wells_df["Name"]=='Imports'].index, inplace=True)
-    except:
+    try:  
+        # Use .loc to identify rows where 'Name' is 'Imports' and drop them
+        active_wells_df.drop(active_wells_df.loc[active_wells_df["Name"] == 'Imports'].index, inplace=True)
+    except KeyError:
         print("Row does not exist")
 
     
@@ -963,6 +1029,7 @@ def Reset(event):
     }
 )
     Scenario_Button.value = 'Current state - 2024'
+    ButtonDemand.value = 135
     Button3.value, Button4.value,  = False, False
     update_scenarioTitle("VITALENS - Current Situation")
     update_indicators()
@@ -970,13 +1037,14 @@ def Reset(event):
 def update_indicators(arg=None):
     total_extraction.value = calculate_total_extraction()
     total_opex.value = calculate_total_OPEX()
+    total_capex.value = calculate_total_CAPEX()
     excess_cap.value = calculate_available()
+    natura_value.value=calculate_affected_Natura()
     own_pane.value = calculate_ownership()
-    natura_pane.value = calculate_affected_Natura()
     co2_pane.value= calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
-    update_balance_opex()
-    # update_balance_lzh_gauges()
+    # update_balance_opex()
+    update_balance_lzh_gauges()
     total_demand.value = calculate_total_Demand()
     total_difference.value = calculate_difference()
     lzh.value = calculate_lzh()
@@ -1024,7 +1092,7 @@ for index, row in wells.iterrows():
     NamePane = pn.pane.Str(update_well_Name(wellName), styles={
         'font-family': 'Roboto'
     })
-    NameState = pn.Row(NameP, pn.Spacer(), checkbox)
+    NameState = pn.Row(NameP, checkbox)
     Well_radioB = pn.Column(NameState, NamePane, radio_group, styles=miniBox_style)
     
     # Add the well layout to the appropriate balance area layout
@@ -1035,7 +1103,7 @@ for index, row in wells.iterrows():
     # Store the active state and radio group reference along with the NamePane
     active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": NamePane}
 
-print(checkboxes)    
+ 
     
     
     
@@ -1135,6 +1203,10 @@ textEnd = pn.pane.HTML(
     ''', width=300, align="start", styles={}
 )
 
+textDivider0 = pn.pane.HTML('''<hr class="dashed">''')
+textDivider1 = pn.pane.HTML('''<hr class="dashed">''')
+textDivider2 = pn.pane.HTML('''<hr class="dashed">''')
+
 scenario_layout = pn.Column(textB1, Scenario_Button, textEnd, ButtonR)
 
 measures_layout = pn.Column(textB3, Button3,textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR )
@@ -1158,8 +1230,8 @@ total_extraction = pn.indicators.Number(
     value=calculate_total_extraction(),
     format="{value:.2f} Mm\u00b3/yr",
     default_color='#3850a0',
-    font_size="28pt",
-    title_size="18pt",
+    font_size="24pt",
+    title_size="16pt",
     sizing_mode="stretch_width",
     align='center'
 )
@@ -1168,8 +1240,8 @@ total_demand = pn.indicators.Number(
     name="Total Water Demand",
     value=calculate_total_Demand,
     format="{value:0,.2f} Mm\u00b3/yr",
-    font_size="28pt",
-    title_size="18pt",
+    font_size="24pt",
+    title_size="16pt",
     default_color='#3850a0',
     sizing_mode="stretch_width", align='center'
 )
@@ -1180,8 +1252,8 @@ total_difference = pn.indicators.Number(
     format="{value:.2f} Mm\u00b3/yr",
     colors=[(0, '#d9534f'), (10, '#f2bf58'), (100, '#92c25b')],
     default_color='#3850a0',
-    font_size="28pt",
-    title_size="18pt",
+    font_size="24pt",
+    title_size="16pt",
     sizing_mode="stretch_width", align='center'
 )
 
@@ -1190,25 +1262,36 @@ total_opex = pn.indicators.Number(
     value=calculate_total_OPEX(),
     format="{value:0,.2f} M\u20AC/yr",
     default_color='#3850a0',
-    font_size="28pt",
-    title_size="18pt",
+    font_size="24pt",
+    title_size="16pt",
     align="center",
     sizing_mode="stretch_width"
 )
 
-balance_opex = calculate_total_OPEX_by_balance()
-balance_opex_indicators = {
-    balance: pn.indicators.Number(
-        name=f"OPEX {balance}",
-        value=value,
-        format="{value:0,.2f} M\u20AC/yr",
-        default_color='#3850a0',
-        font_size="28pt",
-        title_size="18pt",
-        align="center",
-    )
-    for balance, value in balance_opex.items()
-}
+total_capex = pn.indicators.Number(
+    name="Total CAPEX",
+    value=calculate_total_CAPEX(),
+    format="{value:0,.2f} M\u20AC/yr",
+    default_color='#3850a0',
+    font_size="24pt",
+    title_size="16pt",
+    align="center",
+    sizing_mode="stretch_width"
+)
+
+# balance_opex = calculate_total_OPEX_by_balance()
+# balance_opex_indicators = {
+#     balance: pn.indicators.Number(
+#         name=f"OPEX {balance}",
+#         value=value,
+#         format="{value:0,.2f} M\u20AC/yr",
+#         default_color='#3850a0',
+#         font_size="28pt",
+#         title_size="18pt",
+#         align="center",
+#     )
+#     for balance, value in balance_opex.items()
+# }
 
 excess_cap = pn.indicators.Number(
     name="Excess Capacity",
@@ -1233,13 +1316,13 @@ own_pane = pn.indicators.Number(
     sizing_mode="stretch_width"
 )
 
-natura_pane = pn.indicators.Number(
+natura_value = pn.indicators.Number(
     name="Approximate Natura 2000 \n Affected area",
     value=calculate_affected_Natura(),
     format="{value:0.2f} Ha",
     default_color='#3850a0',
-    font_size="20pt",
-    title_size="12pt",
+    font_size="14pt",
+    title_size="10pt",
     align="center",
     sizing_mode="stretch_width",
     styles = {
@@ -1247,13 +1330,17 @@ natura_pane = pn.indicators.Number(
     }
 )
 
+# Use pn.bind to dynamically bind the number of stars to the pane
+football_svg_pane = pn.bind(generate_area_SVG, natura_value)
+natura_pane = pn.Column(natura_value, football_svg_pane)
+
 co2_pane = pn.indicators.Number(
     name="CO\u2028 Emmission Cost",
     value=calculate_total_CO2_cost(),
     format="{value:0,.2f} M\u20AC/yr",
     default_color='#3850a0',
-    font_size="20pt",
-    title_size="12pt",
+    font_size="24pt",
+    title_size="16pt",
 )
 
 drought_pane = pn.indicators.Number(
@@ -1261,8 +1348,8 @@ drought_pane = pn.indicators.Number(
     value=calculate_total_Drought_cost(),
     format="{value:0,.2f} M\u20AC/yr",
     default_color='#3850a0',
-    font_size="20pt",
-    title_size="12pt",
+    font_size="24pt",
+    title_size="16pt",
 )
 
 # df_display = pn.pane.Markdown(update_df_display())
@@ -1271,7 +1358,7 @@ drought_pane = pn.indicators.Number(
 
 
 lzh = pn.indicators.Gauge(
-    name=f"Overall \n Leveringszekerheid",
+    name=f"Overall \n LZH",
     value=calculate_lzh(),
     bounds=(0, 150),
     format="{value} %",
@@ -1290,7 +1377,7 @@ for area, value in balance_lzh_values.items():
     gauge = pn.indicators.Gauge(
         name=f"LZH \n{area}",
         value=value,
-        bounds=(0, 600),
+        bounds=(0, 630),
         format="{value} %",
         colors=[(0.2, "#D9534F"), (0.24, "#f2bf57"),(0.27, "#92C25B"), (1, "#8DCEC0")],
         custom_opts={
@@ -1302,18 +1389,24 @@ for area, value in balance_lzh_values.items():
     balance_lzh_gauges[area] = gauge
 
 
-lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center")
-                  )
+# lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"))
+Env_pane = pn.Column(co2_pane, drought_pane, sizing_mode="scale_width")
 
-opexTabs = pn.Tabs(
-    total_opex, *balance_opex_indicators.values(), align=("center", "center")
+indicatorsArea = pn.GridSpec(sizing_mode="stretch_both")
+
+indicatorsArea[0,0:2] = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"), sizing_mode="scale_width")
+indicatorsArea[0,3] = Env_pane
+
+
+CostPane = pn.Row(
+    total_opex, total_capex, align=("center", "center")
 )
 
 Supp_dem = pn.Row(
     total_extraction, minusSVG, total_demand, equalSVG, total_difference, sizing_mode="stretch_width"
 )
 
-Env_pane = pn.Column(co2_pane, drought_pane, sizing_mode="scale_width")
+
 
 app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
     "text-align": "right",
@@ -1323,15 +1416,21 @@ app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
 main1 = pn.GridSpec(sizing_mode="stretch_both")
 main1[0, 0] = pn.Row(map_pane)
 
-main2 = pn.Row(
+main2 = pn.GridSpec(sizing_mode="stretch_both")
+main2[0,0:2] = pn.Row(
     natura_pane,
-    Env_pane,
+    sizing_mode="scale_width",
+    scroll=True
+)
+main2[0,2] = pn.Row(
     excess_cap,
     sizing_mode="scale_width",
     scroll=True
 )
 
-main1[0, 1] = pn.Column(app_title, lzh, Supp_dem, opexTabs, main2, sizing_mode="stretch_width")
+
+
+main1[0, 1] = pn.Column(app_title, indicatorsArea, textDivider0, Supp_dem, textDivider1, CostPane, textDivider2, main2, sizing_mode="stretch_width")
 
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
@@ -1349,12 +1448,12 @@ def total_extraction_update():
     """
     total_extraction.value = calculate_total_extraction()
     total_opex.value = calculate_total_OPEX()
-    update_balance_opex()
-    #  update_balance_lzh_gauges()
+    # update_balance_opex()
+    update_balance_lzh_gauges()
     update_indicators()
     total_demand.value = calculate_total_Demand()
     total_difference.value = calculate_difference()
-    natura_pane.value = calculate_affected_Natura()
+    calculate_affected_Natura()
     map_pane
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
