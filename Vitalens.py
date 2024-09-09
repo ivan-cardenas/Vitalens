@@ -6,7 +6,7 @@ import fiona
 from bokeh.models.formatters import PrintfTickFormatter
 import folium
 import keplergl
-from shapely.geometry import shape, Polygon
+from shapely.geometry import shape, Polygon, Point
 from lonboard import Map, PathLayer, ScatterplotLayer
 import branca
 from functools import partial
@@ -187,6 +187,7 @@ active_wells_df = gpd.GeoDataFrame(
     }
 )
 active_wells_df.astype({"Num_Wells": "int32", "Ownership": "int32"}, copy=False)
+active_wells_df.set_crs(epsg=28992)
 
 cities = gpd.read_file(GPKG_FILE, layer="CitiesHexagonal")
 
@@ -371,7 +372,6 @@ def calculate_affected_Natura():
     ]
     total = restricted.shape[0]
     ha = total * 629387.503078 / 100000
-    print ("Affected", ha)
     return ha
 
 def generate_area_SVG (n):
@@ -491,7 +491,7 @@ def update_radio(event, well_name):
     active_wells_df.loc[active_wells_df["Name"] == well_name, "OPEX"] = new_value * opex_m3
     
     name_pane = active_wells[well_name]["name_pane"]
-    name_pane.object = update_well_Name(well_name)
+    name_pane.object = update_well_Value(well_name)
     update_indicators()
     
 def update_scenarios(event):
@@ -501,16 +501,13 @@ def update_scenarios(event):
     if event.new == "Accelerated Growth    +35% Demand":
         print('scenario 2 active')
         Scenario2()
-    if event.new == 'Current state - 2024':
-        demand_capita = 0.156
-        hexagons_filterd["Water Demand"] = (
-         hexagons_filterd["Pop2022"] * demand_capita * 365
-        ) / 1000000
-        update_scenarioTitle("VITALENS - Current Situation 2024")
+    if event.new == "Current state - 2024":
+        print("Orginal Scenario")
+        ScenarioBase()
     update_indicators()
     
 
-def update_well_Name(well_name):
+def update_well_Value(well_name):
     """
     Update the well name display.
 
@@ -521,6 +518,7 @@ def update_well_Name(well_name):
         str: Updated well name display.
     """
     current_extraction = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
+    
     return f"{current_extraction:.2f} Mm\u00b3/yr"
 
 
@@ -528,6 +526,7 @@ def current_demand(event):
     global demand_capita
     if event.new == 90:
         demand_capita = 0.09*smallBussiness
+        
     if event.new == 100:
         demand_capita = 0.1*smallBussiness
     if event.new == 120:
@@ -832,16 +831,20 @@ text = ["## Scenario"]
 
 def update_scenarioTitle(new_title):
     global text
-    base_title = "VITALENS - Current Situation 2024"
+    base_title = "Current state - 2024"
     if Scenario_Button.value == "Autonomous Growth    +10% Demand":
-        if ("Accelerated Growth" or base_title) in text:
+        if "Accelerated Growth" in text:
             text.remove("Accelerated Growth")
+        if base_title in text:
+            text.remove(base_title)
         text.append(new_title)
     if Scenario_Button.value == "Accelerated Growth    +35% Demand":
-        if ("Autonomous Growth" or base_title) in text:
+        if "Autonomous Growth" in text:
             text.remove("Autonomous Growth")
+        if base_title in text:
+            text.remove(base_title)
         text.append(new_title)
-    if Scenario_Button.value == "VITALENS - Current Situation 2024":
+    if Scenario_Button.value == "Current state - 2024":
         if "Accelerated Growth" in text:
             text.remove("Accelerated Growth")
         if "Autonomous Growth" in text:
@@ -889,6 +892,22 @@ def update_title(event):
     print(text)
     update_indicators()
     
+
+def ScenarioBase():
+    """
+    Implement the base scenario with a demand equal to year 2022.
+
+    Args:
+        event: The event object.
+    """
+    global demand_capita
+    hexagons_filterd["Current Pop"]= hexagons_filterd["Pop2022"]
+    hexagons_filterd["Water Demand"] = (
+        hexagons_filterd["Current Pop"] * demand_capita * 365 
+    ) / 1000000
+    update_scenarioTitle("Current state - 2024")
+    print("Scenario Base restored")
+    update_indicators()
 
 def Scenario1():
     """
@@ -982,7 +1001,40 @@ def Measure4On():
     """
     Activate the fourth measure (importing water).
     """
-    active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 4.38, 0,0,0,0,0,0,0, "POINT (253802.6,498734.2)"]
+    # Assign the geometry directly with proper coordinates
+    new_geometry = Point(253802.6, 498734.2)  # Projected coordinates
+    active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 4.38, 0,0,0,0,0,0.262,0, new_geometry]
+    new_well = active_wells_df.loc[active_wells_df["Name"] == 'Imports']
+    print(active_wells_df)
+    
+    new_well_gdf = gpd.GeoDataFrame(new_well, geometry='geometry')
+    new_well_gdf =  new_well_gdf.to_json()
+ 
+    layer = folium.GeoJson(
+        new_well_gdf,
+        name="Import Water",
+        zoom_on_click=True,
+        popup=popup_well,
+        tooltip=folium.GeoJsonTooltip(fields=["Name"], aliases=["Well Name:"]),
+        marker=folium.Marker(
+            icon=folium.Icon(
+                icon_color="#f3f3f3", icon="arrow-up-from-ground-water", prefix="fa", color='cadetblue'
+            )
+        ),
+        show = True
+    ).add_to(m)
+    # folium.GeoJson(
+    #     mainPipes,
+    #     name="Main Pipelines",
+    #     style_function= lambda x:{ 
+    #         "color": "#d9534f",
+    #         "weight": (4 if x["properties"]["Diameter_mm"]>350
+    #                    else(2 if x["properties"]["Diameter_mm"]>250
+    #                    else 1)),
+    #         "Opacity": 0.6,
+    #     },
+    #     show=False
+    # )
 
 def Measure4Off():
     """
@@ -1016,6 +1068,7 @@ def Reset(event):
         "Max_permit": wells["Permit__Mm3_per_jr_"],
         "Balance area": wells["Balansgebied"],
         "Active": [True] * len(wells),
+        "Current Extraction" : wells["Extraction_2023__Mm3_per_jr_"],
         "Value": wells["Extraction_2023__Mm3_per_jr_"],
         "OPEX_m3": wells["totOpex_m3"],
         "Drought_m3": wells["DroughtDamage_EUR_m3"],
@@ -1025,13 +1078,14 @@ def Reset(event):
         * wells["Extraction_2023__Mm3_per_jr_"]
         * 1000000,
         "OPEX": wells["totOpex_m3"] * wells["Extraction_2023__Mm3_per_jr_"] * 1000000,
+        "CAPEX": 0,
         "geometry": wells["geometry"],
     }
 )
     Scenario_Button.value = 'Current state - 2024'
     ButtonDemand.value = 135
     Button3.value, Button4.value,  = False, False
-    update_scenarioTitle("VITALENS - Current Situation")
+    update_scenarioTitle("Current state - 2024")
     update_indicators()
 
 def update_indicators(arg=None):
@@ -1067,6 +1121,7 @@ options = ["-10%", "-20%", "Current", "+10%", "+20%", "Maximum Permit"]
 for index, row in wells.iterrows():
     wellName = row["Name"]
     current_value = row["Extraction_2023__Mm3_per_jr_"]
+    maxValue =  row["Permit__Mm3_per_jr_"]
     balance_area = row["Balansgebied"]
     radio_group = pn.widgets.RadioButtonGroup(
         name=wellName,
@@ -1089,9 +1144,19 @@ for index, row in wells.iterrows():
         'font-weight': 'bold',
     })
     
-    NamePane = pn.pane.Str(update_well_Name(wellName), styles={
-        'font-family': 'Roboto'
-    })
+    # if update_well_Value(wellName) > maxValue:
+    #     valueStyle = {
+    #         'font-family': 'Roboto',
+    #         'font-weight': 'bold', 
+    #         'color': '#d9534f'
+    #     }
+    # else:
+    valueStyle = {
+            'font-family': 'Roboto',
+            'color': '#2d4c4d'
+        }
+    
+    NamePane = pn.pane.HTML(update_well_Value(wellName), styles=valueStyle)
     NameState = pn.Row(NameP, checkbox)
     Well_radioB = pn.Column(NameState, NamePane, radio_group, styles=miniBox_style)
     
