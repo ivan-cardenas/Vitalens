@@ -5,8 +5,9 @@ import numpy as np
 import fiona
 from bokeh.models.formatters import PrintfTickFormatter
 import folium
+import keplergl
 from shapely.geometry import shape, Polygon
-from lonboard import Map, PathLayer
+from lonboard import Map, PathLayer, ScatterplotLayer
 import branca
 from functools import partial
 
@@ -27,6 +28,7 @@ cssStyle = ['''
   --panel-primary-color: #151931 !important;
   --panel-background-color: #f2f2ed !important;
   --panel-on-background-color: #151931 !important;
+  --sidebar-width: 350px;
 }
 
 :host(.active) .bar {
@@ -80,6 +82,10 @@ hr.dashed {
   width: fit-content;
 }
 
+.bk-btn-warning {
+  margin: 3px;   
+}
+
 .accordion-header button{
     color: #151931;
     background-color: #B4BFE4;
@@ -108,6 +114,7 @@ pn.config.css_files = cssStyle
 pn.config.loading_spinner = 'petal'
 pn.extension(sizing_mode="stretch_width")
 pn.extension("plotly")
+pn.extension("ipywidgets")
 pn.extension("echarts")
 pn.extension(
     "tabulator", "ace", css_files=["https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"]
@@ -120,6 +127,9 @@ layers = fiona.listlayers(GPKG_FILE)  # Load all layers
 
 # Get Wells Attributes
 wells = gpd.read_file(GPKG_FILE, layer="Well_Capacity_Cost")
+industrial = gpd.read_file(GPKG_FILE, layer="Industrial_Extraction")
+
+
 
 # Convert the capacity columns to numeric, setting errors='coerce' will replace non-numeric values with NaN
 wells["Permit__Mm3_per_jr_"] = pd.to_numeric(
@@ -180,8 +190,8 @@ print(cities_clean)
 
 yearCal = 2022
 growRate = 0.0062
-industrialDemand = 0.2
-demand_capita = 0.135*industrialDemand
+smallBussiness = 1.2
+demand_capita = 0.135*smallBussiness
 
 
 # Get Destination Attributes
@@ -212,7 +222,7 @@ hexagons_filterd = gpd.GeoDataFrame(
         "Pop2022": hexagons["Pop_2022"],
         "Current Pop": hexagons["Pop_2022"],
         "Industrial Demand": hexagons["Ind_Demand"],
-        "Water Demand": hexagons["Pop_2022"] * 0.1560 * 365 / 1000000,
+        "Water Demand": hexagons["Pop_2022"] * demand_capita * 365 / 1000000,
         "Type": hexagons["Type_T"],
         "Source_Name": hexagons["Source_Name"],
         "geometry": hexagons["geometry"],
@@ -229,6 +239,16 @@ def calculate_total_extraction():
         float: Total water extraction in Mm3/yr.
     """
     total = active_wells_df[active_wells_df["Active"]]["Value"].sum()
+    return total
+
+def calculate_difference():
+    """
+    Calculate the total water extraction from active wells.
+
+    Returns:
+        float: Total water extraction in Mm3/yr.
+    """
+    total = calculate_total_extraction() - calculate_total_Demand()
     return total
 
 def calculate_available():
@@ -462,20 +482,19 @@ def update_well_Name(well_name):
     current_extraction = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
     return f"{current_extraction:.2f} Mm\u00b3/yr"
 
-# Function to update the yearCal variable
-# def update_year(event):     
-#     if event.new == 2024:
-#         hexagons_filterd["Current Pop"] = round(
-#             hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((2024 - 2022))), 0
-#         )
-#     if event.new == 2035:
-#         hexagons_filterd["Current Pop"] = round(
-#             hexagons_filterd["Pop2022"] * ((1 + growRate) ** float((2035 - 2022))), 0
-#         )
-#     hexagons_filterd["Water Demand"] = (
-#         hexagons_filterd["Current Pop"] * 0.1560 * 365
-#     ) / 1000000
-#     update_indicators()  # Update the total demand indicator
+
+def current_demand(event):
+    global demand_capita
+    if event.new == 90:
+        demand_capita = 0.09*smallBussiness
+    if event.new == 100:
+        demand_capita = 0.1*smallBussiness
+    if event.new == 120:
+        demand_capita = 0.12*smallBussiness
+    if event.new == 135:
+        demand_capita = 0.135*smallBussiness
+    update_indicators()
+    
 
 def calculate_total_Demand():
     """
@@ -484,6 +503,10 @@ def calculate_total_Demand():
     Returns:
         float: Total water demand in Mm3/yr.
     """
+    hexagons_filterd["Water Demand"] = (
+        hexagons_filterd["Current Pop"] * demand_capita * 365 
+    ) / 1000000
+    
     total = ((hexagons_filterd["Water Demand"]).sum()) + (
         (hexagons_filterd["Industrial Demand"]).sum()
     )
@@ -591,7 +614,7 @@ popup_well = folium.GeoJsonPopup(
     aliases=["Well Name", "Balance Area", "Extraction in Mm\u00b3/yr"],
 )
 popup_hex = folium.GeoJsonPopup(
-    fields=["Balance Area", "Water Demand", "Current Pop", "Type"],
+    fields=["cityName", "Water Demand", "Population 2022"],
 )
 popup_industrial = folium.GeoJsonPopup(
     fields=["Place", "Licensed", "Current_Extraction_2019"],
@@ -739,6 +762,12 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
 
     return m
 
+def create_map(wellsLayer=active_wells_df,industryLayer=industrial):
+    w1 = keplergl.KeplerGl(height=500)
+    w1.add_data(data=wellsLayer, name='Wells')
+    w1.add_data(data=industryLayer, name='Industrial Wells')
+    return w1
+
 active_scenarios = set()
 text = ["## Scenario"]
 
@@ -759,28 +788,15 @@ def update_scenarioTitle(new_title):
             text.remove("Accelerated Growth")
         if "Autonomous Growth" in text:
             text.remove("Autonomous Growth")
-        text.append(new_title)
-            
+        else:
+            if Scenario_Button.value in text: 
+                print(text)
+            else: text.append(new_title)            
     app_title.object = " - ".join(text)
     print (text)
 
 
 def update_title(event):
-    global active_wells_df
-    global text
-    # if (Button1.value or Measures_Button.value == "Autonomous Growth" ):
-    #     if "Accelerated Growth" in text:
-    #         text.remove("Accelerated Growth")
-    #     text.append("Autonomous Growth")
-    # if (Button2.value or Measures_Button.value == "Accelerated Growth"):
-    #     if "Autonomous Growth" in text:
-    #         text.remove("Autonomous Growth")
-    #     text.append("Accelerated Growth")
-    # if Measures_Button.value == "Current State - 2024":
-    #     if "Accelerated Growth" in text:
-    #         text.remove("Accelerated Growth")
-    #     if "Autonomous Growth" in text:
-    #         text.remove("Autonomous Growth")
     if Button3.value:
         text.append("Closed Small Wells")
         Measure1On()
@@ -794,13 +810,6 @@ def update_title(event):
     if Button4.value == False:   
         Measure2Off()
         try: text.remove("Closed Natura Wells")
-        except: print("Text not there")
-    if Button5.value:
-        text.append("Use of Smart Meters")
-        Measure3On()
-    if Button5.value == False:
-        Measure3Off()
-        try: text.remove("Use of Smart Meters")
         except: print("Text not there")
     if Button6.value:
         text.append("Import Water")
@@ -823,8 +832,8 @@ def Scenario1():
     Args:
         event: The event object.
     """
-    demand_capita = 0.156
-    hexagons_filterd["Current Pop"]*1.1
+    global demand_capita
+    hexagons_filterd["Current Pop"]= hexagons_filterd["Pop2022"]*1.1
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365 
     ) / 1000000
@@ -840,10 +849,7 @@ def Scenario2():
     Args:
         event: The event object.
     """
-
-def Scenario2():
-    demand_capita = 0.156
-    hexagons_filterd["Current Pop"]*1.35
+    hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]*1.35
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
@@ -930,9 +936,10 @@ def Reset(event):
     Args:
         event: The event object.
     """
-    demand_capita = 0.156
+    demand_capita = 0.135*smallBussiness
+    hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Pop2022"] * demand_capita * 365
+        hexagons_filterd["Current Pop"] * demand_capita * 365
     ) / 1000000
     global active_wells_df
     active_wells_df = gpd.GeoDataFrame(
@@ -955,7 +962,8 @@ def Reset(event):
         "geometry": wells["geometry"],
     }
 )
-    Button1.value, Button2.value, Button3.value, Button4.value, Button5.value = False, False, False, False, False
+    Scenario_Button.value = 'Current state - 2024'
+    Button3.value, Button4.value,  = False, False
     update_scenarioTitle("VITALENS - Current Situation")
     update_indicators()
 
@@ -968,8 +976,9 @@ def update_indicators(arg=None):
     co2_pane.value= calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
     update_balance_opex()
-    update_balance_lzh_gauges()
+    # update_balance_lzh_gauges()
     total_demand.value = calculate_total_Demand()
+    total_difference.value = calculate_difference()
     lzh.value = calculate_lzh()
     
 
@@ -1044,21 +1053,21 @@ for balance_area, layouts in balance_area_buttons.items():
 firstColumn = pn.Column(balance_area_Text,radioButton_layout)
     
 Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Autonomous Growth    +10% Demand','Accelerated Growth    +35% Demand'], button_type='warning', styles={
-    'width': '97%', }
+    'width': '93%', 'border': '3px' }
                                              )
 Scenario_Button.param.watch(update_scenarios, "value")
 
-Button1 = pn.widgets.Button(
-    name='Autonomous growth', button_type="primary", width=300, margin=10,
-)
-Button1.param.watch(update_title, 'value')
-Button1.on_click(Scenario1)
+# Button1 = pn.widgets.Button(
+#     name='Autonomous growth', button_type="primary", width=300, margin=10,
+# )
+# Button1.param.watch(update_title, 'value')
+# Button1.on_click(Scenario1)
 
-Button2 = pn.widgets.Button(
-    name="Accelerated growth", button_type="primary", width=300, margin=10, 
-)
-Button2.param.watch(update_title, 'value')
-Button2.on_click(Scenario2)
+# Button2 = pn.widgets.Button(
+#     name="Accelerated growth", button_type="primary", width=300, margin=10, 
+# )
+# Button2.param.watch(update_title, 'value')
+# Button2.on_click(Scenario2)
 
 Button3 = pn.widgets.Toggle(
     name='Close Small Wells', button_type="primary", button_style="outline", width=300, margin=10, 
@@ -1070,10 +1079,12 @@ Button4 = pn.widgets.Toggle(
 )
 Button4.param.watch(update_title, 'value')
 
-Button5 = pn.widgets.Toggle(
-    name='Include Smart Meters', button_type="primary", button_style="outline", width=300, margin=10, 
-)
-Button5.param.watch(update_title, 'value')
+ButtonDemand = pn.widgets.RadioButtonGroup(name='Water Demand per Capita', options=[135,120,100,90], button_type='warning',
+                                            width=80, orientation='horizontal', styles={
+    'width': '97%', 'flex-wrap': 'no-wrap' })
+ButtonDemand.param.watch(current_demand, 'value')
+
+Button5= pn.Row(ButtonDemand)
 
 Button6 = pn.widgets.Toggle(
     name='Import Water', button_type="primary", button_style="outline", width=300, margin=10, 
@@ -1111,7 +1122,7 @@ textB4 = pn.pane.HTML(
 
 textB5 = pn.pane.HTML(
     '''
-    <b>Installation of Water Smartmeters: Reduction of 10% on demand &#8628;</b>''', width=300, align="start", styles={}
+    <b>Water Conusmption per Capita in L/d;</b>''', width=300, align="start", styles={}
 )
 
 textB6 = pn.pane.HTML(
@@ -1124,14 +1135,23 @@ textEnd = pn.pane.HTML(
     ''', width=300, align="start", styles={}
 )
 
-scenario_layout = pn.Column(textB1, Scenario_Button, textB3, Button3, textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR)
+scenario_layout = pn.Column(textB1, Scenario_Button, textEnd, ButtonR)
 
-tabs = pn.Tabs(("Well Capacities", radioButton_layout), ("Scenarios", scenario_layout))
+measures_layout = pn.Column(textB3, Button3,textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR )
+
+tabs = pn.Tabs(("1. Scenarios", scenario_layout), ("2. Measures", measures_layout),("3. Well Capacities", radioButton_layout))
+
+
+
 
 # MAIN WINDOW
 
-map_pane = pn.panel(
-    pn.bind(update_layers, wellsLayer=active_wells_df, industryLayer=industrial,sizing_mode="stretch_both"))
+map_pane = pn.pane.plot.Folium(update_layers(), sizing_mode="stretch_both")
+
+
+minusSVG= pn.pane.SVG('<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M6 12L18 12" stroke="#4139a7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>', max_width=40,sizing_mode='stretch_width', align='center')
+
+equalSVG = pn.pane.SVG('<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M3 8C2.44772 8 2 8.44772 2 9C2 9.55228 2.44772 10 3 10H21C21.5523 10 22 9.55228 22 9C22 8.44772 21.5523 8 21 8H3Z" fill="#4139a7"></path> <path d="M3 14C2.44772 14 2 14.4477 2 15C2 15.5523 2.44772 16 3 16H21C21.5523 16 22 15.5523 22 15C22 14.4477 21.5523 14 21 14H3Z" fill="#4139a7"></path> </g></svg>', max_width=40,sizing_mode='stretch_width', align='center')
 
 total_extraction = pn.indicators.Number(
     name="Total Supply",
@@ -1140,7 +1160,29 @@ total_extraction = pn.indicators.Number(
     default_color='#3850a0',
     font_size="28pt",
     title_size="18pt",
-    sizing_mode="stretch_width"
+    sizing_mode="stretch_width",
+    align='center'
+)
+
+total_demand = pn.indicators.Number(
+    name="Total Water Demand",
+    value=calculate_total_Demand,
+    format="{value:0,.2f} Mm\u00b3/yr",
+    font_size="28pt",
+    title_size="18pt",
+    default_color='#3850a0',
+    sizing_mode="stretch_width", align='center'
+)
+
+total_difference = pn.indicators.Number(
+    name="Water Balance",
+    value=calculate_difference(),
+    format="{value:.2f} Mm\u00b3/yr",
+    colors=[(0, '#d9534f'), (10, '#f2bf58'), (100, '#92c25b')],
+    default_color='#3850a0',
+    font_size="28pt",
+    title_size="18pt",
+    sizing_mode="stretch_width", align='center'
 )
 
 total_opex = pn.indicators.Number(
@@ -1226,15 +1268,7 @@ drought_pane = pn.indicators.Number(
 # df_display = pn.pane.Markdown(update_df_display())
 #df_Hexagons = pn.pane.DataFrame(hexagons_filterd.head(), name="Hexagons data")
 
-total_demand = pn.indicators.Number(
-    name="Total Water Demand",
-    value=calculate_total_Demand(),
-    format="{value:0,.2f} Mm\u00b3/yr",
-    font_size="28pt",
-    title_size="18pt",
-    default_color='#3850a0',
-    sizing_mode="stretch_width"
-)
+
 
 lzh = pn.indicators.Gauge(
     name=f"Overall \n Leveringszekerheid",
@@ -1256,7 +1290,7 @@ for area, value in balance_lzh_values.items():
     gauge = pn.indicators.Gauge(
         name=f"LZH \n{area}",
         value=value,
-        bounds=(0, 500),
+        bounds=(0, 600),
         format="{value} %",
         colors=[(0.2, "#D9534F"), (0.24, "#f2bf57"),(0.27, "#92C25B"), (1, "#8DCEC0")],
         custom_opts={
@@ -1276,7 +1310,7 @@ opexTabs = pn.Tabs(
 )
 
 Supp_dem = pn.Row(
-    total_extraction, pn.Spacer(width=50), total_demand, sizing_mode="stretch_width"
+    total_extraction, minusSVG, total_demand, equalSVG, total_difference, sizing_mode="stretch_width"
 )
 
 Env_pane = pn.Column(co2_pane, drought_pane, sizing_mode="scale_width")
@@ -1297,7 +1331,7 @@ main2 = pn.Row(
     scroll=True
 )
 
-main1[0, 1] = pn.Column(app_title, lzhTabs, Supp_dem, opexTabs, main2, sizing_mode="stretch_width")
+main1[0, 1] = pn.Column(app_title, lzh, Supp_dem, opexTabs, main2, sizing_mode="stretch_width")
 
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
@@ -1314,14 +1348,14 @@ def total_extraction_update():
     Update the total extraction and related indicators.
     """
     total_extraction.value = calculate_total_extraction()
-    df_display.object = update_df_display()
     total_opex.value = calculate_total_OPEX()
-    total_demand.value = calculate_total_Demand()
     update_balance_opex()
-    update_balance_lzh_gauges()
+    #  update_balance_lzh_gauges()
     update_indicators()
+    total_demand.value = calculate_total_Demand()
+    total_difference.value = calculate_difference()
     natura_pane.value = calculate_affected_Natura()
-    map_pane.object = update_layers()
+    map_pane
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
 
