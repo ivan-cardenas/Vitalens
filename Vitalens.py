@@ -41,6 +41,24 @@ cssStyle = ['''
     background: #00000014 !important
 }
 
+
+::-webkit-scrollbar-track
+{
+	background-color: #F5F5F5;
+}
+
+::-webkit-scrollbar
+{
+	width: 5px !important; 
+	background-color: #F5F5F5;
+}
+
+::-webkit-scrollbar-thumb
+{
+	background-color: #CCC5B9 !important;
+    radius: 1px
+}
+
 #sidebar, #main {
     background-color: #F2F2ED !important;
 }
@@ -69,7 +87,7 @@ hr.dashed {
 .bk-btn-group {
   height: 100%;
   display: flex;
-  flex-wrap: wrap !important;
+  flex-wrap: inherit !important;
   align-items: center;
 }
 
@@ -119,7 +137,6 @@ buttonGroup_style = {
 }
 
 
-
 # Initialize extensions
 pn.config.global_css = cssStyle
 pn.config.css_files = cssStyle
@@ -131,6 +148,7 @@ pn.extension("echarts")
 pn.extension(
     "tabulator", "ace", css_files=["https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"]
 )
+pn.extension(notifications=True)
 
 
 # Load the GeoPackage file
@@ -245,6 +263,8 @@ hexagons_filterd = gpd.GeoDataFrame(
 
 balance_areas= hexagons_filterd.dissolve(by="Balance Area", as_index=False)
 
+industrialExcess = 0
+
 def calculate_total_extraction():
     """
     Calculate the total water extraction from active wells.
@@ -252,7 +272,8 @@ def calculate_total_extraction():
     Returns:
         float: Total water extraction in Mm3/yr.
     """
-    total = active_wells_df[active_wells_df["Active"]]["Value"].sum()
+    global industrialExcess
+    total = active_wells_df[active_wells_df["Active"]]["Value"].sum() + industrialExcess
     return total
 
 def calculate_difference():
@@ -275,7 +296,11 @@ def calculate_available():
     total = (
         active_wells_df[active_wells_df["Active"]==True]["Max_permit"].sum()
         - active_wells_df[active_wells_df["Active"]==True]["Value"].sum()
-    )
+    ) 
+    return total
+
+def calculate_industrial_extract():
+    total = industrial["Current_Extraction_2019"].sum()
     return total
 
 def calculate_ownership():
@@ -377,9 +402,41 @@ def calculate_affected_Natura():
 
 def generate_area_SVG (n):
     SVG = '<svg width="64px" height="64px" viewBox="0 -199.5 1423 1423" class="icon" version="1.1" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M105.124 107.703h1142.109v796.875h-1142.109v-796.875z" fill="#C0D36F"></path><path d="M1069.108 336.219h157.266v353.672h-157.266zM128.562 336.219h157.266v353.672h-157.266z" fill="#FFFFFF"></path><path d="M1120.438 90.125h-887.813c-78.646 0.133-142.367 63.853-142.5 142.488v558.528c0.133 78.647 63.853 142.367 142.488 142.5h887.826c78.646-0.133 142.367-63.853 142.5-142.488v-558.293c0 0 0 0 0 0 0-78.747-63.771-142.601-142.488-142.733zM651.688 626.844c-53.93-11.239-93.867-58.377-93.867-114.844s39.938-103.605 93.106-114.711l0.761 229.554zM698.563 397.156c53.93 11.239 93.867 58.377 93.867 114.844s-39.938 103.605-93.106 114.711l-0.761-229.554zM136.062 347.937h101.25c0 0 0 0 0 0 23.429 0 42.421 18.992 42.421 42.421v243.516c0 0 0 0 0 0 0 23.429-18.992 42.421-42.421 42.421 0 0 0 0 0 0h-101.25v-328.125zM136.062 791.375v-68.438h101.25c49.317 0 89.297-39.98 89.297-89.297v-242.578c0-49.317-39.98-89.297-89.297-89.297 0 0 0 0 0 0h-101.25v-68.438c0.133-52.759 42.867-95.492 95.613-95.625h420.011v212.813c-79.347 12.438-139.329 80.308-139.329 162.188 0 81.879 59.982 149.75 138.403 162.068l0.927 212.932h-419.063c-0.209 0.002-0.457 0.003-0.705 0.003-52.942 0-95.859-42.918-95.859-95.859 0-0.165 0.001-0.331 0.002-0.497zM1120.438 887h-421.875v-212.813c79.347-12.438 139.329-80.308 139.329-162.188 0-81.879-59.982-149.75-138.403-162.068l-0.927-212.932h421.875c52.759 0.133 95.492 42.866 95.625 95.613v68.45h-95.625c0 0 0 0 0 0-49.317 0-89.297 39.98-89.297 89.297v243.516c0 49.317 39.979 89.297 89.297 89.297 0 0 0 0 0 0h93.75v68.438c-0.249 52.012-41.883 94.217-93.648 95.39zM1216.063 347.937v328.125h-95.625c0 0 0 0 0 0-23.429 0-42.421-18.992-42.421-42.421 0 0 0 0 0 0v-242.578c0 0 0 0 0 0 0-23.429 18.992-42.421 42.421-42.421 0 0 0 0 0 0h93.75z" fill="#25274B"></path></g></svg>'
-    fig = pn.pane.HTML(SVG*(int(n/0.5)))
     
-    return fig
+    HaSVG = 0.5
+    full = int(n)
+    leftover = n - full
+    
+    partialSVG = '''
+    <svg height="210" width="500">
+  <defs>
+    <filter id="fillpartial" primitiveUnits="objectBoundingBox" x="0%" y="0%" width="100%" height="100%">
+      <feFlood x="0%" y="0%" width="100%" height="100%" flood-color="red" />
+      <feOffset dy="{leftover}">
+        <animate attributeName="dy" from="1" to=".5" dur="3s" />
+      </feOffset>
+      <feComposite operator="in" in2="SourceGraphic" />
+      <feComposite operator="over" in2="SourceGraphic" />
+    </filter>
+  </defs>
+  '<svg filter="url(#fillpartial)" width="64px" height="64px" viewBox="0 -199.5 1423 1423" class="icon" version="1.1" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M105.124 107.703h1142.109v796.875h-1142.109v-796.875z" fill="#C0D36F"></path><path d="M1069.108 336.219h157.266v353.672h-157.266zM128.562 336.219h157.266v353.672h-157.266z" fill="#FFFFFF"></path><path d="M1120.438 90.125h-887.813c-78.646 0.133-142.367 63.853-142.5 142.488v558.528c0.133 78.647 63.853 142.367 142.488 142.5h887.826c78.646-0.133 142.367-63.853 142.5-142.488v-558.293c0 0 0 0 0 0 0-78.747-63.771-142.601-142.488-142.733zM651.688 626.844c-53.93-11.239-93.867-58.377-93.867-114.844s39.938-103.605 93.106-114.711l0.761 229.554zM698.563 397.156c53.93 11.239 93.867 58.377 93.867 114.844s-39.938 103.605-93.106 114.711l-0.761-229.554zM136.062 347.937h101.25c0 0 0 0 0 0 23.429 0 42.421 18.992 42.421 42.421v243.516c0 0 0 0 0 0 0 23.429-18.992 42.421-42.421 42.421 0 0 0 0 0 0h-101.25v-328.125zM136.062 791.375v-68.438h101.25c49.317 0 89.297-39.98 89.297-89.297v-242.578c0-49.317-39.98-89.297-89.297-89.297 0 0 0 0 0 0h-101.25v-68.438c0.133-52.759 42.867-95.492 95.613-95.625h420.011v212.813c-79.347 12.438-139.329 80.308-139.329 162.188 0 81.879 59.982 149.75 138.403 162.068l0.927 212.932h-419.063c-0.209 0.002-0.457 0.003-0.705 0.003-52.942 0-95.859-42.918-95.859-95.859 0-0.165 0.001-0.331 0.002-0.497zM1120.438 887h-421.875v-212.813c79.347-12.438 139.329-80.308 139.329-162.188 0-81.879-59.982-149.75-138.403-162.068l-0.927-212.932h421.875c52.759 0.133 95.492 42.866 95.625 95.613v68.45h-95.625c0 0 0 0 0 0-49.317 0-89.297 39.98-89.297 89.297v243.516c0 49.317 39.979 89.297 89.297 89.297 0 0 0 0 0 0h93.75v68.438c-0.249 52.012-41.883 94.217-93.648 95.39zM1216.063 347.937v328.125h-95.625c0 0 0 0 0 0-23.429 0-42.421-18.992-42.421-42.421 0 0 0 0 0 0v-242.578c0 0 0 0 0 0 0-23.429 18.992-42.421 42.421-42.421 0 0 0 0 0 0h93.75z" fill="#25274B"></path></g></svg>'
+  '''
+    
+    
+    fig = pn.pane.HTML(SVG*(int(n/HaSVG)))
+    fig2 = pn.pane.HTML(partialSVG)
+    
+    composite = pn.Column (fig)
+    
+    return composite
+
+
+def generate_pipes_SVG(origin, destination, n):
+    SVG = '''<svg height="35px" width="35px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" xml:space="preserve" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round" stroke="#fcfcfc" stroke-width="22.528"> <path style="fill:#C0FCFF;" d="M402.286,186.514H109.714c-12.118,0-21.943,9.825-21.943,21.943v146.286 c0,12.118,9.825,21.943,21.943,21.943h292.571c12.118,0,21.943-9.825,21.943-21.943V208.457 C424.229,196.339,414.404,186.514,402.286,186.514z"></path> <path style="fill:#89D2E8;" d="M402.286,186.514H256v190.171h146.286c12.118,0,21.943-9.825,21.943-21.943V208.457 C424.229,196.339,414.404,186.514,402.286,186.514z"></path> <path style="fill:#A9A9AE;" d="M256,98.743c-12.118,0-21.943,9.825-21.943,21.943v87.771c0,12.118,9.825,21.943,21.943,21.943 c12.118,0,21.943-9.825,21.943-21.943v-87.771C277.943,108.567,268.118,98.743,256,98.743z"></path> <path style="fill:#7AC0DE;" d="M490.057,149.943h-87.771c-12.118,0-21.943,9.825-21.943,21.943v219.429 c0,12.118,9.825,21.943,21.943,21.943h87.771c12.118,0,21.943-9.825,21.943-21.943V171.886 C512,159.767,502.175,149.943,490.057,149.943z"></path> <path style="fill:#89D2E8;" d="M109.714,149.943H21.943C9.825,149.943,0,159.767,0,171.886v219.429 c0,12.118,9.825,21.943,21.943,21.943h87.771c12.118,0,21.943-9.825,21.943-21.943V171.886 C131.657,159.767,121.833,149.943,109.714,149.943z"></path> <path style="fill:#DA3981;" d="M299.886,98.743h-87.771c-12.118,0-21.943,9.825-21.943,21.943s9.825,21.943,21.943,21.943h87.771 c12.118,0,21.943-9.825,21.943-21.943S312.004,98.743,299.886,98.743z"></path> <path style="fill:#A91E62;" d="M321.829,120.686c0-12.118-9.825-21.943-21.943-21.943H256v43.886h43.886 C312.004,142.629,321.829,132.804,321.829,120.686z"></path> </g><g id="SVGRepo_iconCarrier"> <path style="fill:#C0FCFF;" d="M402.286,186.514H109.714c-12.118,0-21.943,9.825-21.943,21.943v146.286 c0,12.118,9.825,21.943,21.943,21.943h292.571c12.118,0,21.943-9.825,21.943-21.943V208.457 C424.229,196.339,414.404,186.514,402.286,186.514z"></path> <path style="fill:#89D2E8;" d="M402.286,186.514H256v190.171h146.286c12.118,0,21.943-9.825,21.943-21.943V208.457 C424.229,196.339,414.404,186.514,402.286,186.514z"></path> <path style="fill:#A9A9AE;" d="M256,98.743c-12.118,0-21.943,9.825-21.943,21.943v87.771c0,12.118,9.825,21.943,21.943,21.943 c12.118,0,21.943-9.825,21.943-21.943v-87.771C277.943,108.567,268.118,98.743,256,98.743z"></path> <path style="fill:#7AC0DE;" d="M490.057,149.943h-87.771c-12.118,0-21.943,9.825-21.943,21.943v219.429 c0,12.118,9.825,21.943,21.943,21.943h87.771c12.118,0,21.943-9.825,21.943-21.943V171.886 C512,159.767,502.175,149.943,490.057,149.943z"></path> <path style="fill:#89D2E8;" d="M109.714,149.943H21.943C9.825,149.943,0,159.767,0,171.886v219.429 c0,12.118,9.825,21.943,21.943,21.943h87.771c12.118,0,21.943-9.825,21.943-21.943V171.886 C131.657,159.767,121.833,149.943,109.714,149.943z"></path> <path style="fill:#DA3981;" d="M299.886,98.743h-87.771c-12.118,0-21.943,9.825-21.943,21.943s9.825,21.943,21.943,21.943h87.771 c12.118,0,21.943-9.825,21.943-21.943S312.004,98.743,299.886,98.743z"></path> <path style="fill:#A91E62;" d="M321.829,120.686c0-12.118-9.825-21.943-21.943-21.943H256v43.886h43.886 C312.004,142.629,321.829,132.804,321.829,120.686z"></path> </g></svg>'''
+    fig =pn.pane.HTML(SVG*n)
+    OD = pn.pane.HTML(f'<p style="color:#3850A0; font-size:14px; margin:4px;">Pipes from <b>{origin} to {destination}</b>:  ')
+    pane = pn.Row(OD, fig)
+    return pane
 
 def calculate_total_CO2_cost():
     """
@@ -545,16 +602,18 @@ def update_well_Value_formatted(well_name):
     
     return f"{current_extraction:.2f} Mm\u00b3/yr"
 
-def styleWellValue (wellName, maxValue):
-    if update_well_Value(wellName) > maxValue:
+def styleWellValue (Wellvalue, maxValue):
+    if Wellvalue > maxValue:
         valueStyle = {
             'font-family': 'Roboto',
+            'font-size': "14px",
             'font-weight': 'bold', 
             'color': '#d9534f'
         }
     else:
         valueStyle = {
             'font-family': 'Roboto',
+            'font-size': "14px",
             'font-weight': "bold",
             'color': '#2d4c4d'
         }
@@ -896,35 +955,51 @@ def update_scenarioTitle(new_title):
 
 
 def update_title(event):
-    if Button3.value:
+    if ButtonSmallWells.value:
         if "Closed Small Wells" in text:
             print("Text already there")
-        else: text.append("Closed Small Wells")
-        Measure1On()
-    if Button3.value == False:
+        else: 
+            text.append("Closed Small Wells")
+            Measure1On()
+    if ButtonSmallWells.value == False:
         Measure1Off()
         if "Closed Small Wells" in text:
             text.remove("Closed Small Wells")
         else:
             print("Text not there")
-    if Button4.value:
+    if ButtonCloseNatura.value:
         if "Closed Natura Wells" in text:
              print("Text already there")
-        else: text.append("Closed Natura Wells")
-        Measure2On()
-    if Button4.value == False:   
+        else: 
+            text.append("Closed Natura Wells")
+            Measure2On()
+    if ButtonCloseNatura.value == False:   
         Measure2Off()
         if "Closed Natura Wells" in text:
             text.remove("Closed Natura Wells")
         else: print("Text not there")
-    if Button6.value:
-        text.append("Import Water")
-        Measure4On()
-    if Button6.value == False:     
+    if ButtonImportWater.value:
+        if "Import Water" in text:
+            print("Text already there")
+        else: 
+            text.append("Import Water")
+            Measure4On()
+    if ButtonImportWater.value == False:     
         Measure4Off()
         if "Import Water" in text:
             text.remove("Import Water") 
         else: print("Text not there")
+    if ButtonAddExtraIndustrial.value:
+        if "Use industrial exccess" in text:
+            print("Text already there")
+        else: text.append("Use industrial exccess")
+        Measure5On()
+    if ButtonAddExtraIndustrial.value == False:
+        Measure5Off()
+        if "Use industrial exccess" in text:
+            text.remove("Use industrial exccess")
+        else: print("Text not there")
+        
     
     app_title.object = " - ".join(text)
     print(text)
@@ -1065,12 +1140,12 @@ def Measure4On():
     new_geometry = Point(253802.6, 498734.2)  # Projected coordinates
     active_wells_df.loc[active_wells_df.shape[0]] = ["Imports", 3,0, 4.5, "Imported", True, 4.38, 4.38, 0,0,0,0,0,0.262,0, new_geometry]
     new_well = active_wells_df.loc[active_wells_df["Name"] == 'Imports']
-    print(active_wells_df)
+    print(active_wells_df.tail())
     
     new_well_gdf = gpd.GeoDataFrame(new_well, geometry='geometry')
     new_well_gdf =  new_well_gdf.to_json()
  
-    layer = folium.GeoJson(
+    folium.GeoJson(
         new_well_gdf,
         name="Import Water",
         zoom_on_click=True,
@@ -1103,9 +1178,19 @@ def Measure4Off():
     try:  
         # Use .loc to identify rows where 'Name' is 'Imports' and drop them
         active_wells_df.drop(active_wells_df.loc[active_wells_df["Name"] == 'Imports'].index, inplace=True)
+        print(active_wells_df.tail())
     except KeyError:
         print("Row does not exist")
 
+def Measure5On():
+    global industrialExcess
+    industrialExcess = industrial["Licensed"].sum()-industrial["Current_Extraction_2019"].sum()
+    
+def Measure5Off():
+    global industrialExcess
+    industrialExcess = 0  
+
+    
     
 def Reset(event):
     """
@@ -1145,7 +1230,7 @@ def Reset(event):
 )
     Scenario_Button.value = 'Current state - 2024'
     ButtonDemand.value = 135
-    Button3.value, Button4.value,  = False, False
+    ButtonSmallWells.value, ButtonCloseNatura.value,  = False, False
     update_scenarioTitle("Current state - 2024")
     update_indicators()
 
@@ -1180,6 +1265,7 @@ Radio_buttons = []
 Well_radioB = []
 options = ["-10%", "-20%", "Current", "+10%", "+20%", "Maximum Permit"]
 
+
 for index, row in wells.iterrows():
     wellName = row["Name"]
     current_value = row["Extraction_2023__Mm3_per_jr_"]
@@ -1205,10 +1291,13 @@ for index, row in wells.iterrows():
         'font-family': "Barlow",
         'font-weight': 'bold',
     })
-       
-    NamePane = pn.pane.HTML(update_well_Value_formatted(wellName), styles=styleWellValue(wellName,maxValue))
+    
+    Wellvalue = update_well_Value(wellName)
+    well_style=styleWellValue(Wellvalue,maxValue)
+    
+    extractionPerWell = pn.pane.HTML(object=update_well_Value_formatted(wellName), styles=well_style)
     NameState = pn.Row(NameP, checkbox)
-    Well_radioB = pn.Column(NameState, NamePane, radio_group, styles=miniBox_style)
+    Well_radioB = pn.Column(NameState, extractionPerWell, radio_group, styles=miniBox_style)
     
     # Add the well layout to the appropriate balance area layout
     if balance_area not in balance_area_buttons:
@@ -1216,7 +1305,7 @@ for index, row in wells.iterrows():
     balance_area_buttons[balance_area].append(Well_radioB)
     
     # Store the active state and radio group reference along with the NamePane
-    active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": NamePane}
+    active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": extractionPerWell}
 
  
     
@@ -1228,20 +1317,20 @@ balance_area_Text = pn.pane.HTML('''
     , width=300, align="start")
 
 # Create a layout for the radio buttons
-radioButton_layout = pn.Accordion(styles={'width': '97%', 'color':'#151931'})
+radioButton_layout = pn.Accordion(styles={'width': '80%', 'color':'#151931'})
 for balance_area, layouts in balance_area_buttons.items():
     balance_area_column = pn.Column(*layouts)
     radioButton_layout.append((balance_area, balance_area_column))
     
-firstColumn = pn.Column(balance_area_Text,radioButton_layout)
+
     
 Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Population 2030','Population 2035'], button_type='warning', styles={
-    'width': '93%', 'border': '3px' }
+    'width': '93%', 'border': '3px' }, orientation='vertical'
                                              )
 Scenario_Button.param.watch(update_scenarios, "value")
 
 ScenarioSmall_Button = pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Small Bussiness   +10% Demand','Small Bussiness   +35% Demand'], button_type='warning', styles={
-    'width': '93%', 'border': '3px' }
+    'width': '93%', 'border': '3px' }, orientation='vertical'
                                              )
 ScenarioSmall_Button.param.watch(update_scenariosSmall, "value")
 
@@ -1257,68 +1346,76 @@ ScenarioSmall_Button.param.watch(update_scenariosSmall, "value")
 # Button2.param.watch(update_title, 'value')
 # Button2.on_click(Scenario2)
 
-Button3 = pn.widgets.Toggle(
+ButtonSmallWells = pn.widgets.Toggle(
     name='Close Small Wells', button_type="primary", button_style="outline", width=300, margin=10, 
 )
-Button3.param.watch(update_title, 'value')
+ButtonSmallWells.param.watch(update_title, 'value')
 
-Button4 = pn.widgets.Toggle(
+ButtonCloseNatura = pn.widgets.Toggle(
     name='Close Natura 2000 Wells', button_type="primary", button_style="outline", width=300, margin=10, 
 )
-Button4.param.watch(update_title, 'value')
+ButtonCloseNatura.param.watch(update_title, 'value')
 
 ButtonDemand = pn.widgets.RadioButtonGroup(name='Water Demand per Capita', options=[135,120,100,90], button_type='warning',
                                             width=80, orientation='horizontal', styles={
-    'width': '97%', 'flex-wrap': 'no-wrap' })
+    'width': '97%', 'flex-wrap': 'no-wrap' }, align=("center", "center"))
 ButtonDemand.param.watch(current_demand, 'value')
 
-Button5= pn.Row(ButtonDemand)
+# Button5= pn.Row(ButtonDemand, align=("center", "center"))
 
-Button6 = pn.widgets.Toggle(
+ButtonImportWater = pn.widgets.Toggle(
     name='Import Water', button_type="primary", button_style="outline", width=300, margin=10, 
 )
-Button6.param.watch(update_title, 'value')
+ButtonImportWater.param.watch(update_title, 'value')
 
-ButtonR = pn.widgets.Button(
+ButtonAddExtraIndustrial = pn.widgets.Toggle(name="Add Industrial water",  button_type="primary", button_style="outline", width=300, margin=10,)
+ButtonAddExtraIndustrial.param.watch(update_title, 'value')
+
+ButtonReset = pn.widgets.Button(
     name='Reset', button_type='danger', width=300, margin=10
 )
-ButtonR.on_click(Reset)
+ButtonReset.on_click(Reset)
 
-textYears = pn.pane.HTML(
-    '''
-    <h3 align= "center" style="margin: 5px;"> Year Selection</h3><hr>
-  ''', width=300, align="start", styles={"margin": "5px"}
-)
+# textYears = pn.pane.HTML(
+#     '''
+#     <h3 align= "center" style="margin: 5px;"> Year Selection</h3><hr>
+#   ''', width=300, align="start", styles={"margin": "5px"}
+# )
 
 textDivider3 = pn.pane.HTML('''<hr class="dashed"> <h3 align= "center" style="margin: 5px;">Scenarios Small bussiness</h3><hr>''')
 
-textB1 = pn.pane.HTML(
+textScenarioPop = pn.pane.HTML(
     '''
-    <h3 align= "center" style="margin: 5px;"> Scenarios Population</h3><hr>'''
+    <h3 align= "center" style="margin: 5px;">Scenarios Population</h3><hr>'''
     # <b>Scenario with demand increase of 10% &#8628;</b>'''
     , width=300, align="start"
 )
 textB2 = pn.pane.HTML(
     '''<b>Scenario with demand increase of 35% &#8628;</b>''', width=300, align="start"
+    
 )
-textB3 = pn.pane.HTML(
-    '''<hr class="dashed"><h3 align= "center" style="margin: 5px;"> Measures </h3> <hr>
+textMeasureSupp = pn.pane.HTML(
+    '''<hr class="dashed"><h3 align= "center" style="margin: 5px;"> Supply Measures </h3> <hr>
     <b>Close down all well locations with production less than 5Mm\u00b3/yr &#8628;</b>''', width=300, align="start", styles={}
 )
-textB4 = pn.pane.HTML(
+textCloseNatura = pn.pane.HTML(
     '''
     <b>Close down all well locations in less than 100m from a Natura 2000 Area &#8628;</b>''', width=300, align="start", styles={}
 )
 
-textB5 = pn.pane.HTML(
-    '''
-    <b>Water Conusmption per Capita in L/d;</b>''', width=300, align="start", styles={}
+textMeasureDemand = pn.pane.HTML(
+    '''<hr class="dashed"><h3 align= "center" style="margin: 5px;"> Demand Measures </h3> <hr>
+    <b>Water Conusmption per Capita in L/d</b>''', width=300, align="start", styles={}
 )
 
-textB6 = pn.pane.HTML(
+textImport = pn.pane.HTML(
     '''
     <b>Importing water from WAZ Getelo, NVB Nordhorn and Haaksbergen</b>''', width=300, align="start", styles={}
 )
+
+textIndustrial = pn.pane.HTML(
+    '''
+    <b>Add unused water from industrial permitse </b>''', width=300, align="start", styles={})
 
 textEnd = pn.pane.HTML(
     '''<hr class="dashed">
@@ -1329,21 +1426,59 @@ textDivider0 = pn.pane.HTML('''<hr class="dashed">''')
 textDivider1 = pn.pane.HTML('''<hr class="dashed">''')
 textDivider2 = pn.pane.HTML('''<hr class="dashed">''')
 
-file_create = pn.widgets.Button(name='Create Report', button_type='primary')
+file_create = pn.widgets.Button(name='Create Report', button_type='primary', width=300, margin=10,)
 
-
-file_download = pn.widgets.FileDownload(file="Vitalens_report.pdf", filename='Vitalens report.pdf')
+file_download = pn.widgets.FileDownload(file="Vitalens_report.pdf", button_type="primary" , width=300, margin=10,)
 
 # Create a spinner
 spinner = pn.indicators.LoadingSpinner(width=50, height=50, value=False)
 
+def spacer(size):
+    spacerVertical = pn.Spacer(height=size)
+    return spacerVertical
 
-scenario_layout = pn.Column(textB1, Scenario_Button, textDivider3, ScenarioSmall_Button, textEnd, ButtonR, file_create, spinner, file_download)
+disclaimer = pn.pane.HTML('''    
+                         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+    <h1 style="color: #3850A0;">Welcome to Vitalens App</h1>
+    <p>
+        This application provides a comprehensive tool for managing and analyzing water wells within the Overijssel Zuid region. It enables users to monitor well extraction capacities, operational costs, environmental impact, and other critical factors affecting water supply planning.
+    </p>
+    
+    <h2>Key Features</h2>
+    <ul>
+        <li><strong>Real-Time Data Visualization:</strong> View and interact with dynamic maps that display well locations, extraction levels, and environmental restrictions.</li>
+        <li><strong>Scenario Analysis:</strong> Simulate different water demand scenarios, including changes in population or small bussiness usage, to understand their potential impact on water supply and operational costs.</li>
+        <li><strong>Environmental Cost Assessment:</strong> Estimate environmental costs associated with CO2 emissions and drought impact for each well, and assess potential restrictions due to protected areas like Natura2000.</li>
+        <li><strong>Custom Well Management:</strong> Adjust well extraction levels and status (active or inactive) to optimize water resources and operational efficiency.</li>
+        <li><strong>Interactive Data Exploration:</strong> Easily explore detailed well data, including security of supply,  OPEX, environmental costs, and performance per balance area.</li>
+    </ul>
+    
+    <h2>Disclaimer</h2>
+    <p>
+        While this application provides valuable insights and data visualization for water management, the data used within this tool is based on various assumptions and estimates. Actual well performance, environmental impact, and operational costs may vary due to a range of factors such as real-time environmental conditions, regulatory changes, or unforeseen operational challenges.
+    </p>
+    <p>
+        <strong>Please note:</strong> The results and outputs provided by this app should be used as indicative guidance rather than precise measurements. Users are advised to consult with local experts and use verified data sources for critical decision-making.
+    </p>
+    
+    <p style="color: #666; font-size: 14px;">
+        © 2024 Vitalens App. Vitens and University of Twente. All rights reserved.
+    </p>
+</div>
+                         
+                         ''', width=300)
 
-measures_layout = pn.Column(textB3, Button3,textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR, file_download )
+# flaotingDisclaimer = pn.layout.html(disclaimer, name= "Welcome", margin=20)
 
-tabs = pn.Tabs(("1. Scenarios", scenario_layout), ("2. Measures", measures_layout),("3. Well Capacities", radioButton_layout))
 
+
+scenario_layout = pn.Column(textScenarioPop, Scenario_Button, textDivider3, ScenarioSmall_Button, textEnd, ButtonReset, spacer(300), file_create, spinner, file_download, width=320)
+
+measures_layout = pn.Column(textMeasureSupp, ButtonSmallWells,textCloseNatura, ButtonCloseNatura, textImport, ButtonImportWater,  textIndustrial, ButtonAddExtraIndustrial, spacer(30), textMeasureDemand, ButtonDemand, textEnd, ButtonReset, file_create, spinner, file_download, width=320)
+
+firstColumn = pn.Column(balance_area_Text,radioButton_layout,spacer(50), file_create, spinner, file_download)
+
+tabs = pn.Tabs(("Welcome", disclaimer),("1. Scenarios", scenario_layout), ("2. Measures", measures_layout),("3. Well Capacities", firstColumn), closable=True, width = 320)
 
 # MAIN WINDOW
 
@@ -1427,11 +1562,24 @@ excess_cap = pn.indicators.Number(
     value=calculate_available(),
     format="{value:0.2f} Mm\u00b3/yr",
     default_color='#3850a0',
-    font_size="20pt",
-    title_size="12pt",
+    font_size="16pt",
+    title_size="10pt",
     align="center",
     sizing_mode="stretch_width"
 )
+
+industrial_extract = pn.indicators.Number(
+    name="Industrial Water Extraction",
+    value=calculate_industrial_extract(),
+    format="{value:0.2f} Mm\u00b3/yr",
+    default_color='#3850a0',
+    font_size="16pt",
+    title_size="10pt",
+    align="center",
+    sizing_mode="stretch_width"
+)
+
+right_pane = pn.Column(excess_cap,industrial_extract, align=("center", "center"), sizing_mode="stretch_height")
 
 own_pane = pn.indicators.Number(
     name="Landownership",
@@ -1463,6 +1611,9 @@ natura_value = pn.indicators.Number(
 football_svg_pane = pn.bind(generate_area_SVG, natura_value)
 natura_pane = pn.Column(natura_value, football_svg_pane)
 
+
+pipes_pane =pn.Column(generate_pipes_SVG("Reggeland","Stedenband",1), generate_pipes_SVG("Reggeland","Hof van Twente", 2), generate_pipes_SVG("Reggeland","Dinkelland", 1), generate_pipes_SVG("Hof van Twente", "Stedeban", 3), generate_pipes_SVG("Dinkelland", "Stedeband", 1), width=250)
+
 co2_pane = pn.indicators.Number(
     name="CO\u2082 Emmission Cost",
     value=calculate_total_CO2_cost(),
@@ -1487,7 +1638,7 @@ drought_pane = pn.indicators.Number(
 
 
 lzh = pn.indicators.Gauge(
-    name=f"Overall \n LZH",
+    name=f"Overall LZH",
     value=calculate_lzh(),
     bounds=(0, 150),
     format="{value} %",
@@ -1496,7 +1647,7 @@ lzh = pn.indicators.Gauge(
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
     },
-    align=("center",'center')
+    align=("center",'center'), height = 300, title_size = 14
 )
 lzh.param.watch(update_indicators, "value")
 
@@ -1513,7 +1664,7 @@ for area, value in balance_lzh_values.items():
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
     },
-    align=("center",'center'),
+    align=("center",'center'), height = 300, title_size = 14
     )
     balance_lzh_gauges[area] = gauge
     
@@ -1525,7 +1676,7 @@ def printResults(filename1):
     printingReport.styledWells(active_wells_df)
     printingReport.generate_matplotlib_stackbars(active_wells_df, filename1)
     # printingReport.generate_image_fromInd(pane=lzh, filename=filename2)
-    printingReport.createPDF(filename1, Scenario_Button, ScenarioSmall_Button, Button3, Button4, Button6, ButtonDemand,total_demand,total_extraction,total_opex,total_capex, co2_pane,drought_pane,natura_value)
+    printingReport.createPDF(filename1, Scenario_Button, ScenarioSmall_Button, ButtonSmallWells, ButtonCloseNatura, ButtonImportWater, ButtonAddExtraIndustrial, ButtonDemand,total_demand,total_extraction,total_opex,total_capex, co2_pane,drought_pane,natura_value)
     return print("File Created")
 
 # When clicking the button, show the spinner and run the function
@@ -1533,17 +1684,18 @@ def on_button_click(event):
     spinner.value = True  # Show the spinner
     printResults("wells_Distribution.png")
     spinner.value = False  # Hide the spinner when done
+    pn.state.notifications.success('Report File created, you can download it now', duration=4000)
 
 
 file_create.on_click(on_button_click)
 
 
 # lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"))
-Env_pane = pn.Column(co2_pane, drought_pane, sizing_mode="scale_width")
+Env_pane = pn.Column(co2_pane, drought_pane, sizing_mode="stretch_height")
 
-indicatorsArea = pn.GridSpec(sizing_mode="stretch_both")
+indicatorsArea = pn.GridSpec(sizing_mode="scale_both")
 
-indicatorsArea[0,0:2] = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"), sizing_mode="scale_width")
+indicatorsArea[0,0:2] = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"), sizing_mode="stretch_height")
 indicatorsArea[0,3] = Env_pane
 
 
@@ -1551,11 +1703,15 @@ CostPane = pn.Row(
     total_opex, total_capex, align=("center", "center")
 )
 
-Supp_dem = pn.Row(
-    total_extraction, minusSVG, total_demand, equalSVG, total_difference, sizing_mode="stretch_width"
+verticalLine = pn.pane.HTML(
+    '''
+    <hr style="width: 1px; height: 200px; display: inline-block;">
+    ''', sizing_mode="stretch_height"
 )
 
-
+Supp_dem = pn.Row(
+    total_extraction, minusSVG, total_demand, equalSVG, total_difference, verticalLine, right_pane, sizing_mode="scale_both"
+)
 
 app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
     "text-align": "right",
@@ -1564,25 +1720,24 @@ app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
 
 
 
-main1 = pn.GridSpec(sizing_mode="stretch_both")
+main1 = pn.GridSpec(sizing_mode="scale_both")
 main1[0, 0] = pn.Row(map_pane)
 
-main2 = pn.GridSpec(sizing_mode="stretch_both")
+main2 = pn.GridSpec(sizing_mode="scale_both")
 main2[0,0:2] = pn.Row(
     natura_pane,
     sizing_mode="scale_width",
     scroll=True
 )
-main2[0,2] = pn.Row(
-    excess_cap,
+main2[0,2] = pn.Column(
+    pipes_pane,
     sizing_mode="scale_width",
     scroll=True
 )
 
 
 
-main1[0, 1] = pn.Column(app_title, indicatorsArea, textDivider0, Supp_dem, textDivider1, CostPane, textDivider2, main2, sizing_mode="stretch_width")
-
+main1[0, 1] = pn.Column(app_title, indicatorsArea, textDivider0, Supp_dem, textDivider1, CostPane, textDivider2, main2, sizing_mode="stretch_both")
 
 
 Box = pn.template.MaterialTemplate(
@@ -1592,8 +1747,10 @@ Box = pn.template.MaterialTemplate(
     main=[main1],
     header_background= '#3850a0',
     header_color= '#f2f2ed',
-    sidebar_width = 325
+    sidebar_width = 350,
+    collapsed_sidebar = False
 )
+
 
 
 

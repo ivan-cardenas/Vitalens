@@ -34,31 +34,35 @@ def color_pos_neg_value(value):
     return 'color: %s' % color
 
 def styledWells(df):
-    df["PCT Change"]= ((df["Value"]-df["Current Extraction"])/df["Current Extraction"])*100
+    df["CO2 cost"] = df.loc[df["Active"] == True, "Value"] * df.loc[df["Active"] == True, "CO2_m3"]
+    df["Draught damage cost"] =  df.loc[df["Active"] == True, "Value"] * df.loc[df["Active"] == True, "Drought_m3"]
+    df["New Extraction"]= df.loc[df["Active"] == True, "Value"]
     
-    df = df.drop(columns=["Num_Wells",'Ownership','OPEX_m3','Drought_m3', 'Env_m3','envCost',"geometry"])
-    df = df.rename(columns={'Max_permit': 'Maximum permit', 'Value':'New Extraction', })
+    df["Extraction PCT Change"]= ((df["New Extraction"]-df["Current Extraction"])/df["Current Extraction"])*100
     
+    df = df.drop(columns=["Num_Wells",'Ownership','OPEX_m3','Drought_m3', "CO2_m3", 'Env_m3','envCost',"geometry"])
+    df = df.rename(columns={'Max_permit': 'Maximum permit' })
+    df = df[["Name","Balance area","Active","Current Extraction","New Extraction", "Maximum permit", "CO2 cost", "Draught damage cost", "Extraction PCT Change" ]]
     
     
     # Apply styling to the DataFrame
     styled_df = df.style.format({
-        'Maximum permit': "{:.2f}",
+        'Maximum permit': "{:.2f} Mm\u00b3/yr",
         'Current Extraction': '{:.2f} Mm\u00b3/yr',
         'New Extraction': '{:.2f} Mm\u00b3/yr',
-        'CO2 cost m3': "{:.2f}",
-        'Drought_m3': "{:.2f}",
+        'CO2 cost': "{:.2f} M\u20AC/yr",
+        'Draught damage cost': "{:.2f} M\u20AC/yr",
         'OPEX': "{:0,.0f} M\u20AC",
         'CAPEX': "{:0,.0f} M\u20AC",
         'Extraction PCT Change': "{:.2f}%",
-    }).background_gradient(subset=['PCT Change'], cmap='RdYlGn') \
+    }).background_gradient(subset=['Extraction PCT Change'], cmap='RdYlGn') \
                       .set_caption("Water Extraction and Cost Overview")
 
     # Convert the styled DataFrame to HTML
     html = styled_df.to_html()
 
     # Use html2image to convert the HTML to an image
-    hti = Html2Image()
+    hti = Html2Image(size=(800, 600))
 
     # Save the HTML content as an image (adjust file path as needed)
     hti.screenshot(html_str=html, save_as='Wells_DF.png')
@@ -110,7 +114,7 @@ def create_title(title, pdf):
     pdf.ln(10)
     
     # Add date of report
-    pdf.set_font('DejaVu', '', 14)
+    pdf.set_font('DejaVu', '', 10)
     pdf.set_text_color(r=128,g=128,b=128)
     today = time.strftime("%d/%m/%Y")
     pdf.write(4, f'{today}')
@@ -118,24 +122,25 @@ def create_title(title, pdf):
     # Add line break
     pdf.ln(10)
     
-def write_to_pdf(pdf, words):
+# def write_to_pdf(pdf, words):
     
-    # Set text colour, font size, and font type
-    pdf.set_text_color(r=0,g=0,b=0)
-    pdf.set_font('DejaVu', '', 12)
+#     # Set text colour, font size, and font type
+#     pdf.set_text_color(r=0,g=0,b=0)
+#     pdf.set_font('DejaVu', '', 12)
     
-    pdf.write(5, words)
+#     pdf.write(5, words)
     
-def createPDF(filename1, popScenario, smallScenario, button3, button4, button6, ButtonDemand, TotalDemand, totalSupply, OPEX, CAPEX, CO2, ENVDmg,Natura):
+def createPDF(filename1, popScenario, smallScenario, button3, button4, button6, button7, ButtonDemand, TotalDemand, totalSupply, OPEX, CAPEX, CO2, ENVDmg,Natura):
     pdf = PDF() # A4 (210 by 297 mm)
-    
+        
     
     # Add a Unicode free font
     # Get the directory where the script is being run
     script_dir = os.path.dirname(os.path.abspath(__file__))
     fontPath= os.path.join(script_dir, 'Assets', 'fonts', 'DejaVuSansCondensed.ttf')
+    fontPathBold = os.path.join(script_dir, 'Assets', 'fonts', 'DejaVuSansCondensed-Bold.ttf')
     pdf.add_font('DejaVu', '', fontPath, uni=True)
-    pdf.add_font('DejaVu', 'b', r'Assets\fonts\DejaVuSans-Bold.ttf', uni=True)
+    pdf.add_font('DejaVu', 'b',fontPathBold, uni=True)
     '''
     First Page of PDF
     '''
@@ -146,77 +151,76 @@ def createPDF(filename1, popScenario, smallScenario, button3, button4, button6, 
     create_letterhead(pdf, WIDTH)
     create_title(TITLE, pdf)
     
+    pdf.set_text_color(r=30,g=30,b=30)
     ## Add Scenario Text
     pdf.set_font('DejaVu', 'b', 16)
-    write_to_pdf(pdf, "1. Secenario Configuration:")
+    pdf.write(5, "1. Secenario Configuration:")
     pdf.ln(15)
     pdf.set_font('DejaVu', '', 11)
-    write_to_pdf(pdf, ("\u2022 Population Scenario: " +popScenario.value))
+    pdf.write(10, ("\u2022 Population Scenario: " +popScenario.value))
     pdf.ln(10)
-    write_to_pdf(pdf, ("\u2022 Small Business Scenario: " +smallScenario.value))
+    pdf.write(10, ("\u2022 Small Business Scenario: " +smallScenario.value))
     pdf.ln(15)
     
     ##ADD some measures text
     pdf.set_font('DejaVu', 'b', 16)
-    write_to_pdf(pdf, "2. Measures configuration:")
+    pdf.write(5, "2. Measures configuration:")
     pdf.ln(15)
     pdf.set_font('DejaVu', '', 11)
-    write_to_pdf(pdf, ("\u2022  Closed Small wells:  " +str(button3.value)))
+    pdf.write(10, ("\u2022  Closed Small wells:  " +str(button3.value)))
     pdf.ln(10)
-    write_to_pdf(pdf, ("\u2022 Closed Natura 2000 Wells:  " +str(button4.value)))
+    pdf.write(10, ("\u2022 Closed Natura 2000 Wells:  " +str(button4.value)))
     pdf.ln(10)
-    write_to_pdf(pdf, ("\u2022 Imported Water from WAZ Getelo, NVB Nordhorn and Haaksbergen  " +str(button6.value)))
+    pdf.write(10, ("\u2022 Imported Water from WAZ Getelo, NVB Nordhorn and Haaksbergen  " +str(button6.value)))
     pdf.ln(10)
-    write_to_pdf(pdf, ("\u2022 Water demand per capita:  " +str(ButtonDemand.value) +  " L/d"))
+    pdf.write(10, ("\u2022 Water demand per capita:  " +str(ButtonDemand.value) +  " L/d"))
+    pdf.ln(10)
+    pdf.write(10, ("\u2022 Using Industrial water permits excess:  " +str(button7.value)))
     pdf.ln(15)
 
 
     # Add some words to PDF
     pdf.set_font('DejaVu', 'b', 16)
-    write_to_pdf(pdf, "3. Wells Configuration:")
+    pdf.write(5, "3. Wells Configuration:")
     pdf.ln(15)
     pdf.set_font('DejaVu', '', 11)
-    write_to_pdf(pdf, "The table below illustrates the Water extraction configuration for each wells location:")
-    pdf.ln(15)
+    pdf.write(10, "The table below illustrates the Water extraction configuration for each wells location:")
+    pdf.ln(10)
     
     # Add table
-    pdf.image("Wells_DF.png", w=WIDTH-20)
-    pdf.ln(10)
+    pdf.image("Wells_DF.png", w=WIDTH-40)
+    pdf.ln(5)
     
     # Add some words to PDF
     pdf.set_font('DejaVu', 'b', 16)
-    write_to_pdf(pdf, "4. Indicators Report:")
+    pdf.write(5, "4. Indicators Report:")
     pdf.ln(15)
     pdf.set_font('DejaVu', '', 11)
    
    
-    write_to_pdf(pdf, ("\u2022  Total Supply:  " +f"{totalSupply.value:.2f} Mm\u00b3/yr"))
+    pdf.write(10, ("\u2022  Total Supply:  " +f"{totalSupply.value:.2f} Mm\u00b3/yr"))
     pdf.ln(10)
-    write_to_pdf(pdf, ("\u2022 Total Demand:  " +f"{TotalDemand.value:.2f} Mm\u00b3/yr"))
+    pdf.write(10, ("\u2022 Total Demand:  " +f"{TotalDemand.value:.2f} Mm\u00b3/yr"))
     pdf.ln(10)
-    write_to_pdf(pdf, ("\u2022 Leverenszekerheid  " +f"{totalSupply.value * 100 / TotalDemand.value:.2f}"+"%"))
+    pdf.write(10, ("\u2022 Leverenszekerheid  " +f"{totalSupply.value * 100 / TotalDemand.value:.2f}"+"%"))
     pdf.ln(10)
-    write_to_pdf(pdf, ("\u2022 OPEX " +f'{OPEX.value:.2f}'+  " M/yr"))
-    pdf.ln(15)
-    write_to_pdf(pdf, ("\u2022 CAPEX " +f'{CAPEX.value:0,.2f}' +  " M/yr"))
-    pdf.ln(15)
-    write_to_pdf(pdf, ("\u2022 CO2 emission cost " +str(CO2.value) +  " M/yr"))
-    pdf.ln(15)
-    write_to_pdf(pdf, ("\u2022 Drought Damage cost " +str(ENVDmg.value) +  " M/yr"))
-    pdf.ln(15)
-    write_to_pdf(pdf, ("\u2022 Natura200 affected area " +str(Natura.value) +  " Ha"))
-    pdf.ln(15)
-    
-    write_to_pdf(pdf, "The table below illustrates the Water extraction configuration for each wells location:")
-    pdf.ln(15)
-        
+    pdf.write(10, ("\u2022 OPEX " +f'{OPEX.value:.2f}'+  " M\u20AC/yr"))
+    pdf.ln(10)
+    pdf.write(10, ("\u2022 CAPEX " +f'{CAPEX.value:0,.2f}' +  " M\u20AC/yr"))
+    pdf.ln(10)
+    pdf.write(10, ("\u2022 CO2 emission cost " +f'{CO2.value:0,.2f}' +  " M\u20AC/yr"))
+    pdf.ln(10)
+    pdf.write(10, ("\u2022 Drought Damage cost " +f'{ENVDmg.value:0,.2f}' +  " M\u20AC/yr"))
+    pdf.ln(10)
+    pdf.write(10, ("\u2022 Natura200 affected area " +f'{Natura.value:.2f}'+  " Ha"))
+    pdf.ln(10)
+            
     # Add some words to PDF
-    write_to_pdf(pdf, "Water extraction per location:")
+    pdf.write(5, "Water extraction per location:")
     pdf.ln(10)
-    
 
     # Add the generated visualisations to the PDF
-    pdf.image(filename1,   w=WIDTH/2-10)
+    pdf.image(filename1,   w=WIDTH-20)
     # pdf.image(filename2, 5, 200, WIDTH/2-10)
     
     pdf.ln(10)
