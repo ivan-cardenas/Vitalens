@@ -10,6 +10,7 @@ from shapely.geometry import shape, Polygon, Point
 from lonboard import Map, PathLayer, ScatterplotLayer
 import branca
 from functools import partial
+import printingReport
 
 # Styling
 globalCss_route= "Stylesheet.css"
@@ -139,7 +140,7 @@ layers = fiona.listlayers(GPKG_FILE)  # Load all layers
 # Get Wells Attributes
 wells = gpd.read_file(GPKG_FILE, layer="Well_Capacity_Cost")
 industrial = gpd.read_file(GPKG_FILE, layer="Industrial_Extraction")
-mainPipes = gpd.read_file(GPKG_FILE, layer="Pipes_Topological")
+mainPipes = gpd.read_file(GPKG_FILE, layer="Pipes_Smooth")
 
 
 # Convert the capacity columns to numeric, setting errors='coerce' will replace non-numeric values with NaN
@@ -204,7 +205,7 @@ cities_clean.loc[cities_clean["cityName"].isna(), "Water Demand"] = None
 yearCal = 2022
 growRate = 0.0062
 smallBussiness = 1.2
-demand_capita = 0.135*smallBussiness
+demand_capita = 0.135
 
 
 # Get Destination Attributes
@@ -235,7 +236,7 @@ hexagons_filterd = gpd.GeoDataFrame(
         "Pop2022": hexagons["Pop_2022"],
         "Current Pop": hexagons["Pop_2022"],
         "Industrial Demand": hexagons["Ind_Demand"],
-        "Water Demand": hexagons["Pop_2022"] * demand_capita * 365 / 1000000,
+        "Water Demand": hexagons["Pop_2022"] * demand_capita * smallBussiness * 365 / 1000000,
         "Type": hexagons["Type_T"],
         "Source_Name": hexagons["Source_Name"],
         "geometry": hexagons["geometry"],
@@ -485,20 +486,18 @@ def update_radio(event, well_name):
    
     
     active_wells_df.loc[active_wells_df["Name"] == well_name, "Value"] = new_value
-    print('error here')
     opex_m3 = active_wells_df.loc[active_wells_df["Name"] == well_name, "OPEX_m3"]
-    print('no ut us here')
     active_wells_df.loc[active_wells_df["Name"] == well_name, "OPEX"] = new_value * opex_m3
     
     name_pane = active_wells[well_name]["name_pane"]
-    name_pane.object = update_well_Value(well_name)
+    name_pane.object = update_well_Value_formatted(well_name)
     update_indicators()
     
 def update_scenarios(event):
-    if event.new == "Autonomous Growth    +10% Demand":
+    if event.new == "Population 2030":
         Scenario1()
         print('scenario 1 active')
-    if event.new == "Accelerated Growth    +35% Demand":
+    if event.new == "Population 2035":
         print('scenario 2 active')
         Scenario2()
     if event.new == "Current state - 2024":
@@ -506,6 +505,17 @@ def update_scenarios(event):
         ScenarioBase()
     update_indicators()
     
+def update_scenariosSmall(event):
+    if event.new == "Small Bussiness   +10% Demand":
+        ScenarioSmallBussiness1()
+        print('scenario 1 Small active')
+    if event.new == "Small Bussiness   +35% Demand":
+        print('scenario 2 small  active')
+        ScenarioSmallBussiness2()
+    if event.new == "Current state - 2024":
+        print("Orginal Scenario")
+        ScenarioSmallBussinessBase()
+    update_indicators()
 
 def update_well_Value(well_name):
     """
@@ -519,20 +529,48 @@ def update_well_Value(well_name):
     """
     current_extraction = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
     
+    return current_extraction
+
+def update_well_Value_formatted(well_name):
+    """
+    Update the well name display.
+
+    Args:
+        well_name (str): The name of the well.
+
+    Returns:
+        str: Updated well name display.
+    """
+    current_extraction = active_wells_df[active_wells_df["Name"]==well_name]["Value"].values[0]
+    
     return f"{current_extraction:.2f} Mm\u00b3/yr"
 
+def styleWellValue (wellName, maxValue):
+    if update_well_Value(wellName) > maxValue:
+        valueStyle = {
+            'font-family': 'Roboto',
+            'font-weight': 'bold', 
+            'color': '#d9534f'
+        }
+    else:
+        valueStyle = {
+            'font-family': 'Roboto',
+            'font-weight': "bold",
+            'color': '#2d4c4d'
+        }
+    return valueStyle
+    
 
 def current_demand(event):
-    global demand_capita
+    global demand_capita 
     if event.new == 90:
-        demand_capita = 0.09*smallBussiness
-        
+        demand_capita  = 0.09*smallBussiness
     if event.new == 100:
-        demand_capita = 0.1*smallBussiness
+        demand_capita  = 0.1*smallBussiness
     if event.new == 120:
-        demand_capita = 0.12*smallBussiness
+        demand_capita  = 0.12*smallBussiness
     if event.new == 135:
-        demand_capita = 0.135*smallBussiness
+        demand_capita  = 0.135*smallBussiness
     update_indicators()
     
 
@@ -544,7 +582,7 @@ def calculate_total_Demand():
         float: Total water demand in Mm3/yr.
     """
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * 365 
+        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365 
     ) / 1000000
     
     total = ((hexagons_filterd["Water Demand"]).sum()) + (
@@ -832,13 +870,13 @@ text = ["## Scenario"]
 def update_scenarioTitle(new_title):
     global text
     base_title = "Current state - 2024"
-    if Scenario_Button.value == "Autonomous Growth    +10% Demand":
+    if Scenario_Button.value == "Population 2030":
         if "Accelerated Growth" in text:
             text.remove("Accelerated Growth")
         if base_title in text:
             text.remove(base_title)
         text.append(new_title)
-    if Scenario_Button.value == "Accelerated Growth    +35% Demand":
+    if Scenario_Button.value == "Population 2035":
         if "Autonomous Growth" in text:
             text.remove("Autonomous Growth")
         if base_title in text:
@@ -893,6 +931,7 @@ def update_title(event):
     update_indicators()
     
 
+
 def ScenarioBase():
     """
     Implement the base scenario with a demand equal to year 2022.
@@ -903,7 +942,7 @@ def ScenarioBase():
     global demand_capita
     hexagons_filterd["Current Pop"]= hexagons_filterd["Pop2022"]
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * 365 
+        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365 
     ) / 1000000
     update_scenarioTitle("Current state - 2024")
     print("Scenario Base restored")
@@ -911,15 +950,16 @@ def ScenarioBase():
 
 def Scenario1():
     """
-    Implement the first scenario with a demand increase of 10%.
+    Implement the first scenario with a demand increase of 1.6%.
 
     Args:
         event: The event object.
     """
-    global demand_capita
-    hexagons_filterd["Current Pop"]= hexagons_filterd["Pop2022"]*1.1
+    global demand_capita 
+    hexagons_filterd["Current Pop"]= hexagons_filterd["Pop2022"]*1.0163
+
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * 365 
+        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365 
     ) / 1000000
     update_scenarioTitle("Autonomous Growth")
     print("Scenario 1 ran perfectly")
@@ -927,19 +967,39 @@ def Scenario1():
 
 def Scenario2():
     """
-    Implement the second scenario with a demand increase of 35%.
+    Implement the second scenario with a demand increase of 2.09%.
     
     
     Args:
         event: The event object.
     """
-    hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]*1.35
+    hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]*1.0209
+
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * 365
+        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
     ) / 1000000
         
     update_scenarioTitle("Accelerated Growth")
     update_indicators()
+    
+def ScenarioSmallBussinessBase():
+    global smallBussiness
+    global demand_capita 
+    smallBussiness = 1.2
+    update_indicators()
+
+def ScenarioSmallBussiness1():
+    global smallBussiness
+    global demand_capita 
+    smallBussiness = 1.2*1.1
+    update_indicators()
+
+def ScenarioSmallBussiness2():
+    global smallBussiness
+    global demand_capita 
+    smallBussiness = 1.2*1.35
+    update_indicators()
+
 
 def Measure1On():
     condition = active_wells_df["Max_permit"] < 5.00
@@ -983,18 +1043,18 @@ def Measure3On():
     """
     Activate the third measure (using smart meters).
     """
-    demand_capita = 0.156 * 0.9
+    demand_capita  = 0.135 * 0.9
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * 365
+        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
     ) / 1000000
 
 def Measure3Off():
     """
     Deactivate the third measure (using smart meters).
     """
-    demand_capita = 0.156
+    demand_capita  = 0.135
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * 365
+        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
     ) / 1000000
     
 def Measure4On():
@@ -1054,10 +1114,11 @@ def Reset(event):
     Args:
         event: The event object.
     """
-    demand_capita = 0.135*smallBussiness
+    demand_capita = 0.135
+    smallBussiness = 1.2
     hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * 365
+        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
     ) / 1000000
     global active_wells_df
     active_wells_df = gpd.GeoDataFrame(
@@ -1104,6 +1165,7 @@ def update_indicators(arg=None):
     lzh.value = calculate_lzh()
     
 
+
 # Initialize a dictionary to hold the active state and slider references
 active_wells = {}
 
@@ -1143,20 +1205,8 @@ for index, row in wells.iterrows():
         'font-family': "Barlow",
         'font-weight': 'bold',
     })
-    
-    # if update_well_Value(wellName) > maxValue:
-    #     valueStyle = {
-    #         'font-family': 'Roboto',
-    #         'font-weight': 'bold', 
-    #         'color': '#d9534f'
-    #     }
-    # else:
-    valueStyle = {
-            'font-family': 'Roboto',
-            'color': '#2d4c4d'
-        }
-    
-    NamePane = pn.pane.HTML(update_well_Value(wellName), styles=valueStyle)
+       
+    NamePane = pn.pane.HTML(update_well_Value_formatted(wellName), styles=styleWellValue(wellName,maxValue))
     NameState = pn.Row(NameP, checkbox)
     Well_radioB = pn.Column(NameState, NamePane, radio_group, styles=miniBox_style)
     
@@ -1185,10 +1235,15 @@ for balance_area, layouts in balance_area_buttons.items():
     
 firstColumn = pn.Column(balance_area_Text,radioButton_layout)
     
-Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Autonomous Growth    +10% Demand','Accelerated Growth    +35% Demand'], button_type='warning', styles={
+Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Population 2030','Population 2035'], button_type='warning', styles={
     'width': '93%', 'border': '3px' }
                                              )
 Scenario_Button.param.watch(update_scenarios, "value")
+
+ScenarioSmall_Button = pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Current state - 2024','Small Bussiness   +10% Demand','Small Bussiness   +35% Demand'], button_type='warning', styles={
+    'width': '93%', 'border': '3px' }
+                                             )
+ScenarioSmall_Button.param.watch(update_scenariosSmall, "value")
 
 # Button1 = pn.widgets.Button(
 #     name='Autonomous growth', button_type="primary", width=300, margin=10,
@@ -1235,9 +1290,11 @@ textYears = pn.pane.HTML(
   ''', width=300, align="start", styles={"margin": "5px"}
 )
 
+textDivider3 = pn.pane.HTML('''<hr class="dashed"> <h3 align= "center" style="margin: 5px;">Scenarios Small bussiness</h3><hr>''')
+
 textB1 = pn.pane.HTML(
     '''
-    <h3 align= "center" style="margin: 5px;"> Scenarios</h3><hr>'''
+    <h3 align= "center" style="margin: 5px;"> Scenarios Population</h3><hr>'''
     # <b>Scenario with demand increase of 10% &#8628;</b>'''
     , width=300, align="start"
 )
@@ -1272,13 +1329,20 @@ textDivider0 = pn.pane.HTML('''<hr class="dashed">''')
 textDivider1 = pn.pane.HTML('''<hr class="dashed">''')
 textDivider2 = pn.pane.HTML('''<hr class="dashed">''')
 
-scenario_layout = pn.Column(textB1, Scenario_Button, textEnd, ButtonR)
+file_create = pn.widgets.Button(name='Create Report', button_type='primary')
 
-measures_layout = pn.Column(textB3, Button3,textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR )
+
+file_download = pn.widgets.FileDownload(file="Vitalens_report.pdf", filename='Vitalens report.pdf')
+
+# Create a spinner
+spinner = pn.indicators.LoadingSpinner(width=50, height=50, value=False)
+
+
+scenario_layout = pn.Column(textB1, Scenario_Button, textDivider3, ScenarioSmall_Button, textEnd, ButtonR, file_create, spinner, file_download)
+
+measures_layout = pn.Column(textB3, Button3,textB4, Button4, textB5, Button5, textB6, Button6, textEnd, ButtonR, file_download )
 
 tabs = pn.Tabs(("1. Scenarios", scenario_layout), ("2. Measures", measures_layout),("3. Well Capacities", radioButton_layout))
-
-
 
 
 # MAIN WINDOW
@@ -1400,7 +1464,7 @@ football_svg_pane = pn.bind(generate_area_SVG, natura_value)
 natura_pane = pn.Column(natura_value, football_svg_pane)
 
 co2_pane = pn.indicators.Number(
-    name="CO\u2028 Emmission Cost",
+    name="CO\u2082 Emmission Cost",
     value=calculate_total_CO2_cost(),
     format="{value:0,.2f} M\u20AC/yr",
     default_color='#3850a0',
@@ -1452,6 +1516,26 @@ for area, value in balance_lzh_values.items():
     align=("center",'center'),
     )
     balance_lzh_gauges[area] = gauge
+    
+
+
+def printResults(filename1):
+    print("Button clicked, generating report...")
+
+    printingReport.styledWells(active_wells_df)
+    printingReport.generate_matplotlib_stackbars(active_wells_df, filename1)
+    # printingReport.generate_image_fromInd(pane=lzh, filename=filename2)
+    printingReport.createPDF(filename1, Scenario_Button, ScenarioSmall_Button, Button3, Button4, Button6, ButtonDemand,total_demand,total_extraction,total_opex,total_capex, co2_pane,drought_pane,natura_value)
+    return print("File Created")
+
+# When clicking the button, show the spinner and run the function
+def on_button_click(event):
+    spinner.value = True  # Show the spinner
+    printResults("wells_Distribution.png")
+    spinner.value = False  # Hide the spinner when done
+
+
+file_create.on_click(on_button_click)
 
 
 # lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"))
@@ -1478,6 +1562,8 @@ app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
     "color": "#00B893"
 })
 
+
+
 main1 = pn.GridSpec(sizing_mode="stretch_both")
 main1[0, 0] = pn.Row(map_pane)
 
@@ -1497,6 +1583,8 @@ main2[0,2] = pn.Row(
 
 main1[0, 1] = pn.Column(app_title, indicatorsArea, textDivider0, Supp_dem, textDivider1, CostPane, textDivider2, main2, sizing_mode="stretch_width")
 
+
+
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
     logo="https://uavonline.nl/wp-content/uploads/2020/11/vitens-logo-1.png",
@@ -1506,6 +1594,8 @@ Box = pn.template.MaterialTemplate(
     header_color= '#f2f2ed',
     sidebar_width = 325
 )
+
+
 
 def total_extraction_update():
     """
