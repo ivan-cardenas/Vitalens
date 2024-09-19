@@ -154,7 +154,7 @@ def createPDF(filename1, popScenario, smallScenario, button3, button4, button6, 
     pdf.set_text_color(r=30,g=30,b=30)
     ## Add Scenario Text
     pdf.set_font('DejaVu', 'b', 16)
-    pdf.write(5, "1. Secenario Configuration:")
+    pdf.write(5, "1. Scenario Configuration:")
     pdf.ln(15)
     pdf.set_font('DejaVu', '', 11)
     pdf.write(10, ("\u2022 Population Scenario: " +popScenario.value))
