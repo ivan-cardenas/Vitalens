@@ -28,7 +28,7 @@ cssStyle = ['''
 :host,
 :root {
   --design-primary-color: #151931 !important;
-  --design-secondary-color: #00B893 !important;
+  --design-secondary-color: #5266d9 !important;
   --design-primary-text-color: #f2f2ed !important;
   --design-secondary-text-color: #151931 !important;
   --bokeh-base-font: "Barlow", sans-serif, Verdana !important;
@@ -40,7 +40,7 @@ cssStyle = ['''
 }
 
 :host(.active) .bar {
-    background-color: #c2d5f7;    
+    background-color: #5266D9 !important;    
 }
 
 :host(.bk-above) .bk-header .bk-tab{
@@ -80,7 +80,7 @@ hr.dashed {
 }
 
 .bar {
-        background-color: #b1b1c9;
+        background-color: #eff6fe;
     }
 
 .bk-btn {
@@ -601,16 +601,29 @@ def update_slider(event, well_name):
         event: The event object.
         well_name (str): The name of the well.
     """
-    active_wells_df.loc[active_wells_df["Name"] == well_name, "Value"] = event.new
+    
+    current_value = wells.loc[wells["Name"] == well_name, "Extraction_2023__Mm3_per_jr_"].values[0]
+    max_value = wells.loc[wells["Name"] == well_name, "Permit__Mm3_per_jr_"].values[0]
+    
+    new_value = event.new
+    
+   
+    
+    
+    active_wells_df.loc[active_wells_df["Name"] == well_name, "Value"] = new_value
     opex_m3 = active_wells_df.loc[active_wells_df["Name"] == well_name, "OPEX_m3"]
-    active_wells_df.loc[active_wells_df["Name"] == well_name, "OPEX"] = (
-        event.new * opex_m3 * 1000000
-    )
-    env_m3 = active_wells_df.loc[active_wells_df["Name"] == well_name, "Env_m3"]
-    active_wells_df.loc[active_wells_df["Name"] == well_name, "envCost"] = (
-        event.new * env_m3 * 1000000
-    )
+    active_wells_df.loc[active_wells_df["Name"] == well_name, "OPEX"] = new_value * opex_m3
+    
+    
+    
+    
+    name_pane = active_wells[well_name]["name_pane"]
+    name_pane.object = update_well_Value_formatted(well_name)
     update_indicators()
+    pn.state.notifications.position = 'bottom-right'
+
+    if new_value > max_value:
+         pn.state.notifications.error(f"Warning on {well_name} well: This value is avobe the extraction permit. Using this value would require negotiation a larger water extraction permit.", 0)
 
 def update_radio(event, well_name):
     """
@@ -716,7 +729,7 @@ def styleWellValue (Wellvalue, maxValue):
             'font-family': 'Roboto',
             'font-size': "14px",
             'font-weight': "bold",
-            'color': '#2d4c4d'
+            'color': '#34407b'
         }
     return valueStyle
     
@@ -1426,29 +1439,42 @@ balance_area_buttons = {}
 # Initialize a dictionary to hold the sliders
 checkboxes = {}
 
-# Setup Well Radio Buttons
-Radio_buttons = []
-Well_radioB = []
-options = ["-20% of Current", "-15% of Current", "Current", "85% of Max. Permit", "Maximum Permit", "115% of Max. Permit"]
 
-
+# Setup Well Sliders
+Sliders = []
 for index, row in wells.iterrows():
+    wellEnd = row["Permit__Mm3_per_jr_"]*1.15
+    wellPermit = row["Permit__Mm3_per_jr_"]
+    wellCurrent = row["Extraction_2023__Mm3_per_jr_"]
     wellName = row["Name"]
-    current_value = row["Extraction_2023__Mm3_per_jr_"]
-    maxValue =  row["Permit__Mm3_per_jr_"]
+    wellStart = row["Extraction_2023__Mm3_per_jr_"]*0.8
     balance_area = row["Balansgebied"]
-    radio_group = pn.widgets.RadioButtonGroup(
-        name=wellName,
-        options=options,
-        button_type='success',
-        value="Current",
-        orientation = "vertical"
+    Well_slider = pn.widgets.FloatSlider(
+        name="",
+        start=wellStart,
+        end=wellEnd,
+        step=0.05,
+        value=wellCurrent,
+        format=PrintfTickFormatter(format="%.2f Mm\u00b3/Year"),
+        width=250,
+        margin=(4, 10),
+        show_value= False,
+        bar_color= '#e9e9e1'
     )
-    
+    max_label = pn.pane.HTML(
+        f"Max: {wellEnd:.2f}", width=85, align="end"
+    )  # Create a label for the maximum value
+    min_label = pn.pane.HTML(f"Min: {wellStart:.2f}", width=85, align="start")
+    permitLabel = pn.pane.HTML(f"Max Permit: {wellPermit:.2f}", width=85, align="start")
+    minMaxlabel = pn.Row(min_label, permitLabel, max_label, width=250)
+
     # Add Checkbox and listeners
     checkbox = pn.widgets.Switch(name="Active", value=True)
     checkbox.param.watch(partial(toggle_well, well_name=wellName), "value")
-    radio_group.param.watch(partial(update_radio, well_name=wellName), "value")
+
+    Well_slider.param.watch(
+        lambda event, well_name=wellName: update_slider(event, well_name), "value"
+    )
     
     # Store the checkbox in the dictionary for later updates
     checkboxes[wellName] = checkbox
@@ -1460,11 +1486,11 @@ for index, row in wells.iterrows():
     })
     
     Wellvalue = update_well_Value(wellName)
-    well_style=styleWellValue(Wellvalue,maxValue)
+    well_style=styleWellValue(Wellvalue,wellEnd)
     
     extractionPerWell = pn.pane.HTML(object=update_well_Value_formatted(wellName), styles=well_style)
     NameState = pn.Row(NameP, checkbox)
-    Well_radioB = pn.Column(NameState, extractionPerWell, radio_group, styles=miniBox_style)
+    Well_radioB = pn.Column(NameState, extractionPerWell, Well_slider, minMaxlabel, styles=miniBox_style)
     
     # Add the well layout to the appropriate balance area layout
     if balance_area not in balance_area_buttons:
@@ -1472,10 +1498,8 @@ for index, row in wells.iterrows():
     balance_area_buttons[balance_area].append(Well_radioB)
     
     # Store the active state and radio group reference along with the NamePane
-    active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": extractionPerWell}
+    active_wells[wellName] = {"active": True, "value": wellCurrent, "radio_group": Well_slider, "name_pane": extractionPerWell}
 
- 
-    
     
     
 # Create HTML Text for Wells Tab
@@ -1926,7 +1950,7 @@ Supp_dem =  pn.Row(
 
 app_title = pn.pane.Markdown("## Scenario: Current State - 2024", styles={
     "text-align": "right",
-    "color": "#00B893"
+    "color": "#5266d9"
 })
 
 
