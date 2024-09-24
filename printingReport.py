@@ -130,7 +130,7 @@ def create_title(title, pdf):
     
 #     pdf.write(5, words)
     
-def createPDF(filename1, popScenario, smallScenario, button3, button4, button6, button7, ButtonDemand, TotalDemand, totalSupply, OPEX, CAPEX, CO2, ENVDmg,Natura):
+def createPDF(filename1, popScenario, smallScenario, button3, button4, button6, button7, ButtonDemand, TotalDemand, totalSupply, OPEX, CAPEX, CO2, ENVDmg,Natura, natureHighDamage_value):
     pdf = PDF() # A4 (210 by 297 mm)
         
     
@@ -212,7 +212,9 @@ def createPDF(filename1, popScenario, smallScenario, button3, button4, button6, 
     pdf.ln(10)
     pdf.write(10, ("\u2022 Drought Damage cost " +f'{ENVDmg.value:0,.2f}' +  " M\u20AC/yr"))
     pdf.ln(10)
-    pdf.write(10, ("\u2022 Natura200 affected area " +f'{Natura.value:.2f}'+  " Ha"))
+    pdf.write(10, ("\u2022 Nature Sensible affected area " +f'{Natura.value:.2f}'+  " Ha"))
+    pdf.ln(10)
+    pdf.write(10, ("\u2022 Nature Very Sensible affected area " +f'{natureHighDamage_value.value:.2f}'+  " Ha"))
     pdf.ln(10)
             
     # Add some words to PDF
