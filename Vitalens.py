@@ -40,7 +40,7 @@ cssStyle = ['''
 }
 
 :host(.active) .bar {
-    background-color: #c2d5f7;    
+    background-color: #ffc233 !important;    
 }
 
 :host(.bk-above) .bk-header .bk-tab{
@@ -1143,6 +1143,17 @@ def update_title(event):
         if "Closed Natura Wells" in text:
             text.remove("Closed Natura Wells")
         else: print("Text not there")
+    if ButtonSmartMeter.value:
+        if "Using Smart Meters" in text:
+            print("Text already there")
+        else: 
+            text.append("Using Smart Meters")
+            Measure3On()
+    if ButtonSmartMeter.value == False:     
+        Measure3Off()
+        if "Using Smart Meters" in text:
+            text.remove("Using Smart Meters") 
+        else: print("Text not there")
     if ButtonImportWater.value:
         if "Import Water" in text:
             print("Text already there")
@@ -1242,20 +1253,26 @@ def ScenarioSmallBussiness2():
 
 
 def Measure1On():
+    # Update the 'Active' column where 'Max_permit' is less than 5.00
     condition = active_wells_df["Max_permit"] < 5.00
     active_wells_df.loc[condition, "Active"] = False
     
-    # Update the checkboxes to reflect the new state
+    # Uncheck checkboxes corresponding to the wells that meet the condition
     for well_name in active_wells_df.loc[condition, "Name"]:
-        checkboxes[well_name].value = False  # Uncheck the checkbox
+        checkboxes[well_name].value = False
+
 
 def Measure1Off():
-    condition = active_wells_df["Max_permit"] >= 5.00
+    # Update the 'Active' column where 'Max_permit' is less than 5.00
+    condition = active_wells_df["Max_permit"] < 5.00
     active_wells_df.loc[condition, "Active"] = True
-
-    # Update the checkboxes to reflect the new state
+    
+    # Uncheck checkboxes corresponding to the wells that meet the condition
     for well_name in active_wells_df.loc[condition, "Name"]:
-        checkboxes[well_name].value = True  # Check the checkbox
+        try:
+            checkboxes[well_name].value = True
+        except: continue
+
 
 def Measure2On():
     """
@@ -1283,7 +1300,7 @@ def Measure3On():
     """
     Activate the third measure (using smart meters).
     """
-    demand_capita  = 0.135 * 0.9
+    demand_capita  = ButtonDemand.value * 0.95
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
     ) / 1000000
@@ -1292,7 +1309,7 @@ def Measure3Off():
     """
     Deactivate the third measure (using smart meters).
     """
-    demand_capita  = 0.135
+    demand_capita  = ButtonDemand.value
     hexagons_filterd["Water Demand"] = (
         hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
     ) / 1000000
@@ -1395,7 +1412,7 @@ def Reset(event):
     Scenario_Button.value = 'Population 2022'
     ScenarioSmall_Button.value = 'State - 2022'
     ButtonDemand.value = 135
-    ButtonSmallWells.value, ButtonCloseNatura.value,  = False, False
+    ButtonSmallWells.value, ButtonCloseNatura.value, ButtonImportWater.value, ButtonSmartMeter.value, ButtonDemand.value = False, False, False, False, 135
     update_scenarioTitle("State - 2022")
     update_indicators()
 
@@ -1446,7 +1463,7 @@ for index, row in wells.iterrows():
     )
     
     # Add Checkbox and listeners
-    checkbox = pn.widgets.Switch(name="Active", value=True)
+    checkbox = pn.widgets.Switch(name="Active", value=True, max_width=20)
     checkbox.param.watch(partial(toggle_well, well_name=wellName), "value")
     radio_group.param.watch(partial(update_radio, well_name=wellName), "value")
     
@@ -1531,12 +1548,14 @@ ButtonDemand.param.watch(current_demand, 'value')
 # Button5= pn.Row(ButtonDemand, align=("center", "center"))
 
 ButtonImportWater = pn.widgets.Toggle(
-    name='Import Water', button_type="primary", button_style="outline", width=300, margin=10, 
-)
+    name='Import Water', button_type="primary", button_style="outline", width=300, margin=10)
 ButtonImportWater.param.watch(update_title, 'value')
 
 ButtonAddExtraIndustrial = pn.widgets.Toggle(name="Add Industrial water",  button_type="primary", button_style="outline", width=300, margin=10,)
 ButtonAddExtraIndustrial.param.watch(update_title, 'value')
+
+ButtonSmartMeter = pn.widgets.Toggle(name="Use Smart Meters", button_type='primary', button_style='outline', width=300, margin=10)
+ButtonSmartMeter.param.watch(update_title, 'value')
 
 ButtonReset = pn.widgets.Button(
     name='Reset', button_type='danger', width=300, margin=10
@@ -1577,7 +1596,11 @@ textMeasureDemand = pn.pane.HTML(
 
 textImport = pn.pane.HTML(
     '''
-    <b>Importing water from WAZ Getelo, NVB Nordhorn and Haaksbergen</b>''', width=300, align="start", styles={}
+    <b>Importing water from WAZ Getelo, NVB Nordhorn and Haaksbergen. Importing 4.5  Mm\u00b3/yr</b>''', width=300, align="start", styles={}
+)
+
+textSmartM = pn.pane.HTML('''
+    <b>Use of Smart meters at homes, reduction of 5% of consumpotion</b>''', width=300, align="start", styles={}
 )
 
 textIndustrial = pn.pane.HTML(
@@ -1643,7 +1666,7 @@ scenario_layout = pn.Column(textScenarioPop, Scenario_Button, textDivider3, Scen
 
 Supply_measures_layout = pn.Column(textMeasureSupp, ButtonSmallWells,textCloseNatura, ButtonCloseNatura, textImport, ButtonImportWater,  textIndustrial, ButtonAddExtraIndustrial, textEnd, ButtonReset, width=320)
 
-Demand_measures_layout = pn.Column(textMeasureDemand, ButtonDemand, textEnd, ButtonReset, width = 320)
+Demand_measures_layout = pn.Column(textMeasureDemand, ButtonDemand, textDivider0, textSmartM, ButtonSmartMeter, textEnd, ButtonReset, width = 320)
 
 firstColumn = pn.Column(balance_area_Text,radioButton_layout)
 secondColumn = pn.Column(file_create, spinner, file_download)
@@ -1926,7 +1949,7 @@ Supp_dem =  pn.Row(
 
 app_title = pn.pane.Markdown("## Scenario: State - 2022", styles={
     "text-align": "right",
-    "color": "#00B893"
+    "color": "#2f4279"
 })
 
 
@@ -1953,28 +1976,29 @@ translate_widget = pn.pane.HTML("""
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     """)
 
+MapTitle = pn.pane.HTML('''<b style="font-size: large; float: right; color: #2f4279;">Overijssel Zuid</b>''')
 
 
 main1 = pn.GridSpec(sizing_mode="scale_both")
-main1[0, 0:1] = pn.Column(map_pane)
+main1[0, 1:2] = pn.Column(MapTitle, map_pane)
 
-main2 = pn.GridSpec(sizing_mode="stretch_both")
-main2[0,0:2] = pn.Column(
+IndicatorsPane = pn.GridSpec(sizing_mode="stretch_both")
+IndicatorsPane[0,0:1] = pn.Column(
     indicatorsArea, lzh_definition, textDivider0, Supp_dem, textDivider1, CostPane, textDivider2, natura_pane,
     scroll=True
 )
-main2[0,2] = pn.Column(
+IndicatorsPane[0,1] = pn.Column(
     Env_pane, right_pane, textDivider0, pipes_pane,
     sizing_mode="scale_width",
     scroll=True
 )
 
-main1[0, 1] = pn.Column(app_title, main2, sizing_mode="scale_both")
+main1[0, 0] = pn.Column(app_title, IndicatorsPane, sizing_mode="scale_both")
 
 
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
-    logo="https://uavonline.nl/wp-content/uploads/2020/11/vitens-logo-1.png",
+    #logo="https://uavonline.nl/wp-content/uploads/2020/11/vitens-logo-1.png",
     sidebar=[tabs],
     main=[main1],
     header_background= '#3850a0',
