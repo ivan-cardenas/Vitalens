@@ -1,0 +1,11 @@
+$( function() {
+    $( "#maplegend" ).draggable({
+                     start: function (event, ui) {
+                         $(this).css({
+                             right: "auto",
+                             top: "auto",
+                             bottom: "auto"
+                         });
+                     }
+                 });
+ });

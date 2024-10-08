@@ -10,6 +10,7 @@ from folium.features import Template
 from shapely.geometry import shape, Polygon, Point
 from lonboard import Map, PathLayer, ScatterplotLayer
 import branca
+from branca.element import Template, MacroElement
 from functools import partial
 import printingReport
 import html
@@ -21,7 +22,7 @@ from panel.custom import JSComponent
 
 # Styling
 globalCss_route= "Stylesheet.css"
-cssStyle = ['''
+cssStyle = ['''            
 /* Import Google Fonts */
 @import url("https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
 
@@ -127,6 +128,45 @@ hr.dashed {
     background: #d3d3cf !imporant;
     color: #d9534f !important;
 }
+
+.maplegend .legend-title {
+            text-align: left;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 90%;
+            }
+        .maplegend .legend-scale ul {
+            margin: 0;
+            margin-bottom: 5px;
+            padding: 0;
+            float: left;
+            list-style: none;
+            }
+        .maplegend .legend-scale ul li {
+            list-style: none;
+            margin-left: 0;
+            line-height: 18px;
+            margin-bottom: 2px;
+            }
+        .maplegend ul.legend-labels li span {
+            font-size: smaller;
+            display: block;
+            float: left;
+            height: 16px;
+            width: 30px;
+            margin-right: 5px;
+            margin-left: 0;
+            border: 1px solid #999;
+            }
+        .maplegend .legend-source {
+            font-size: 80%;
+            color: #777;
+            clear: both;
+            }
+        .maplegend a {
+            color: #777;
+            }
+
 '''
 ]
 
@@ -143,6 +183,28 @@ buttonGroup_style = {
     'display': 'flex'
 }
 
+js_legend = '''
+    $(function() {
+        // Ensure the element exists before making it draggable
+        if ($('#maplegend').length) {
+            $('#maplegend').draggable({
+                start: function(event, ui) {
+                    // Reset positioning constraints to allow free dragging
+                    $(this).css({
+                        right: 'auto',   // Reset 'right' so the element can move left
+                        top: 'auto',     // Reset 'top' so it can move freely
+                        bottom: 'auto'   // Reset 'bottom' to enable dragging downward
+                    });
+                }
+            });
+        } else {
+            console.error("Element #maplegend not found.");
+        }
+    });
+'''
+
+js_files = {'leaflet-dataclassification': 'https://raw.githubusercontent.com/balladaniel/leaflet-dataclassification/master/dist/leaflet-dataclassification.js',
+            'jsLegend': './Assets/test.js'}
 
 # Initialize extensions
 pn.config.global_css = cssStyle
@@ -157,6 +219,7 @@ pn.extension(
 )
 pn.extension('floatpanel')
 pn.extension(notifications=True)
+pn.extension(js_files=js_files)
 
 
 # Load the GeoPackage file
@@ -216,6 +279,11 @@ active_wells_df = gpd.GeoDataFrame(
 active_wells_df.astype({"Num_Wells": "int32", "Ownership": "int32"}, copy=False)
 active_wells_df.set_crs(epsg=28992)
 
+original_OPEX = active_wells_df["OPEX"].sum()/1000000
+print(original_OPEX)
+original_CO2 = (active_wells_df["CO2_m3"]*active_wells_df["Current Extraction"]).sum()
+original_Draught = (active_wells_df["Drought_m3"]*active_wells_df["Current Extraction"]).sum()
+
 cities = gpd.read_file(GPKG_FILE, layer="CitiesHexagonal")
 
 cities_clean = gpd.GeoDataFrame(
@@ -230,7 +298,7 @@ cities_clean.loc[cities_clean["cityName"].isna(), "Water Demand"] = None
 
 yearCal = 2022
 growRate = 0.0062
-smallBussiness = 1.2
+smallBusiness = 1.2
 demand_capita = 0.135
 
 
@@ -262,12 +330,13 @@ hexagons_filterd = gpd.GeoDataFrame(
         "Pop2022": hexagons["Pop_2022"],
         "Current Pop": hexagons["Pop_2022"],
         "Industrial Demand": hexagons["Ind_Demand"],
-        "Water Demand": hexagons["Pop_2022"] * demand_capita * smallBussiness * 365 / 1000000,
+        "Water Demand": hexagons["Pop_2022"] * demand_capita * smallBusiness * 365 / 1000000,
         "Type": hexagons["Type_T"],
         "Source_Name": hexagons["Source_Name"],
         "geometry": hexagons["geometry"],
     }, copy=False
 )
+original_demand = hexagons_filterd["Water Demand"].sum()+hexagons_filterd["Industrial Demand"].sum()
 
 balance_areas= hexagons_filterd.dissolve(by="Balance Area", as_index=False)
 
@@ -510,7 +579,7 @@ def generate_area_SVG (n):
     full = int(n/HaSVG)
     leftover = (n % 1)
     segment = leftover*45
-    print(full)
+
 
   
     
@@ -528,7 +597,7 @@ def generate_area_SVG (n):
 
 
 def generate_pipes_SVG(origin, destination, n):
-    SVG = '''<?xml version="1.0" encoding="UTF-8"?><svg id="Pipeline_1" height="45x" width="35px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35"><defs><style>.cls-1{fill:#41537b;}.cls-2{fill:#a2aea7;}.cls-3{fill:#bdcbc3;}.cls-4{fill:#d9cdf1;}.cls-5{fill:#3b5b6e;}.cls-6{fill:#4c6fb0;}.cls-7{fill:#374766;}.cls-8{fill:#4d83b1;}.cls-9{fill:#2c535f;}.cls-10{fill:#3a6284;}.cls-11{fill:#3f6697;}.cls-12{fill:#3c6585;}</style></defs><path class="cls-12" d="M34.35,12.01c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M33.5,12.55c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M30.75,7.98c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M33.54,12.53c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M32.69,13.06c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M29.94,8.5c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M32.75,13.04c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M31.9,13.57c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M29.15,9c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-11" d="M25.15,9.94l-.83-.89,1.49-.89c.06-.04.11-.08.17-.11h.01s0,0,0,0c.49-.26,1.15-.21,1.87.2,1.49.85,2.71,2.98,2.71,4.72,0,.76-.23,1.32-.61,1.65h0s0,0,0,0c-.1.08-.21.15-.32.2l-1.5.92-.8-1.55c-1.21-.99-2.14-2.75-2.18-4.25Z"/><path class="cls-10" d="M28.92,13.96c0-1.75-1.22-3.87-2.71-4.72-1.49-.85-2.71-.14-2.71,1.59s1.22,3.85,2.71,4.72c1.49.87,2.71.16,2.71-1.59Z"/><path class="cls-2" d="M28.06,13.47c0-1.19-.83-2.64-1.85-3.22-1.02-.58-1.85-.09-1.85,1.08s.83,2.63,1.85,3.22c1.02.6,1.85.11,1.85-1.08Z"/><path class="cls-4" d="M26.25,14.1c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M25.12,14.8c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M24.12,15.43c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M23.65,16.51c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M22.99,16.13c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M22.1,16.66c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M20.97,17.36c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M19.97,18c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M19.5,19.07c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M18.84,18.7c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M18.02,19.2c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M16.89,19.9c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M15.9,20.53c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M15.42,21.61c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M14.77,21.23c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M13.87,21.76c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M12.74,22.46c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M11.75,23.1c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-6" d="M28.16,13.72c0-1.33-.93-2.94-2.06-3.59-.16-.09-.31-.15-.45-.2h0c-.56-.22-1.04.05-1.04.05l-13.3,8.27-.27.16h0s-.09.05-.13.08l-.52.32-.49.29h0c-.06.03-.11.07-.16.11l-1.97,1.22.51.54s0,.07,0,.11c0,1.25.85,2.79,1.92,3.5l.48.93,1.14-.7c.09-.04.17-.09.25-.15h0s0,0,0,0c0,0,0,0,.01,0l.87-.54c.09-.04.17-.09.25-.15h0s0,0,0,0c0,0,0,0,0,0l2.8-1.72c.07-.03.13-.07.19-.12l.95-.58c.06-.03.12-.07.18-.11l10.25-6.31s.31-.19.4-.47h0c.13-.24.21-.55.21-.93Z"/><path class="cls-3" d="M11.27,24.17c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-2" d="M10.61,23.79c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-11" d="M5.95,20.81l-1-1.07,1.79-1.07c.07-.05.14-.1.21-.14h.01s0,0,0,0c.59-.31,1.38-.26,2.24.24,1.79,1.02,3.26,3.58,3.26,5.68,0,.91-.28,1.59-.74,1.98h0s0,0,0,0c-.12.1-.25.18-.39.24l-1.8,1.11-.96-1.86c-1.46-1.19-2.57-3.31-2.62-5.1Z"/><path class="cls-8" d="M10.48,25.65c0-2.1-1.47-4.65-3.26-5.68-1.79-1.02-3.26-.17-3.26,1.91s1.47,4.63,3.26,5.68c1.79,1.05,3.26.19,3.26-1.91Z"/><path class="cls-12" d="M10.95,25.94c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M10.1,26.48c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M7.35,21.91c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M10.14,26.46c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M9.29,26.99c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M6.54,22.42c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M9.35,26.97c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M8.5,27.5c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M5.75,22.93c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/></svg>'''
+    SVG = '''<?xml version="1.0" encoding="UTF-8"?><svg id="Pipeline_1" height="45px" width="45px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35"><defs><style>.cls-1{fill:#41537b;}.cls-2{fill:#a2aea7;}.cls-3{fill:#bdcbc3;}.cls-4{fill:#d9cdf1;}.cls-5{fill:#3b5b6e;}.cls-6{fill:#4c6fb0;}.cls-7{fill:#374766;}.cls-8{fill:#4d83b1;}.cls-9{fill:#2c535f;}.cls-10{fill:#3a6284;}.cls-11{fill:#3f6697;}.cls-12{fill:#3c6585;}</style></defs><path class="cls-12" d="M34.35,12.01c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M33.5,12.55c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M30.75,7.98c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M33.54,12.53c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M32.69,13.06c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M29.94,8.5c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M32.75,13.04c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M31.9,13.57c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M29.15,9c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-11" d="M25.15,9.94l-.83-.89,1.49-.89c.06-.04.11-.08.17-.11h.01s0,0,0,0c.49-.26,1.15-.21,1.87.2,1.49.85,2.71,2.98,2.71,4.72,0,.76-.23,1.32-.61,1.65h0s0,0,0,0c-.1.08-.21.15-.32.2l-1.5.92-.8-1.55c-1.21-.99-2.14-2.75-2.18-4.25Z"/><path class="cls-10" d="M28.92,13.96c0-1.75-1.22-3.87-2.71-4.72-1.49-.85-2.71-.14-2.71,1.59s1.22,3.85,2.71,4.72c1.49.87,2.71.16,2.71-1.59Z"/><path class="cls-2" d="M28.06,13.47c0-1.19-.83-2.64-1.85-3.22-1.02-.58-1.85-.09-1.85,1.08s.83,2.63,1.85,3.22c1.02.6,1.85.11,1.85-1.08Z"/><path class="cls-4" d="M26.25,14.1c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M25.12,14.8c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M24.12,15.43c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M23.65,16.51c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M22.99,16.13c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M22.1,16.66c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M20.97,17.36c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M19.97,18c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M19.5,19.07c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M18.84,18.7c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M18.02,19.2c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M16.89,19.9c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M15.9,20.53c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M15.42,21.61c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M14.77,21.23c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M13.87,21.76c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M12.74,22.46c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M11.75,23.1c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-6" d="M28.16,13.72c0-1.33-.93-2.94-2.06-3.59-.16-.09-.31-.15-.45-.2h0c-.56-.22-1.04.05-1.04.05l-13.3,8.27-.27.16h0s-.09.05-.13.08l-.52.32-.49.29h0c-.06.03-.11.07-.16.11l-1.97,1.22.51.54s0,.07,0,.11c0,1.25.85,2.79,1.92,3.5l.48.93,1.14-.7c.09-.04.17-.09.25-.15h0s0,0,0,0c0,0,0,0,.01,0l.87-.54c.09-.04.17-.09.25-.15h0s0,0,0,0c0,0,0,0,0,0l2.8-1.72c.07-.03.13-.07.19-.12l.95-.58c.06-.03.12-.07.18-.11l10.25-6.31s.31-.19.4-.47h0c.13-.24.21-.55.21-.93Z"/><path class="cls-3" d="M11.27,24.17c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-2" d="M10.61,23.79c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-11" d="M5.95,20.81l-1-1.07,1.79-1.07c.07-.05.14-.1.21-.14h.01s0,0,0,0c.59-.31,1.38-.26,2.24.24,1.79,1.02,3.26,3.58,3.26,5.68,0,.91-.28,1.59-.74,1.98h0s0,0,0,0c-.12.1-.25.18-.39.24l-1.8,1.11-.96-1.86c-1.46-1.19-2.57-3.31-2.62-5.1Z"/><path class="cls-8" d="M10.48,25.65c0-2.1-1.47-4.65-3.26-5.68-1.79-1.02-3.26-.17-3.26,1.91s1.47,4.63,3.26,5.68c1.79,1.05,3.26.19,3.26-1.91Z"/><path class="cls-12" d="M10.95,25.94c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M10.1,26.48c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M7.35,21.91c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M10.14,26.46c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M9.29,26.99c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M6.54,22.42c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M9.35,26.97c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M8.5,27.5c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M5.75,22.93c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/></svg>'''
     fig =pn.pane.HTML(SVG*n)
     OD = pn.pane.HTML(f'<p style="color:#3850A0; font-size:14px; margin:4px;">Pipes from <b>{origin} to {destination}</b>:  ')
     pane = pn.Row(OD, fig)
@@ -664,15 +733,15 @@ def update_scenarios(event):
     update_indicators()
     
 def update_scenariosSmall(event):
-    if event.new == "Small Bussiness   +10% Demand":
-        ScenarioSmallBussiness1()
+    if event.new == "Small Business   +10% Demand":
+        ScenarioSmallBusiness1()
         print('scenario 1 Small active')
-    if event.new == "Small Bussiness   +35% Demand":
+    if event.new == "Small Business   +35% Demand":
         print('scenario 2 small  active')
-        ScenarioSmallBussiness2()
+        ScenarioSmallBusiness2()
     if event.new == "State - 2022":
         print("Orginal Scenario")
-        ScenarioSmallBussinessBase()
+        ScenarioSmallBusinessBase()
     update_indicators()
 
 def update_well_Value(well_name):
@@ -724,13 +793,13 @@ def styleWellValue (Wellvalue, maxValue):
 def current_demand(event):
     global demand_capita 
     if event.new == 90:
-        demand_capita  = 0.09*smallBussiness
+        demand_capita  = 0.09*smallBusiness
     if event.new == 100:
-        demand_capita  = 0.1*smallBussiness
+        demand_capita  = 0.1*smallBusiness
     if event.new == 120:
-        demand_capita  = 0.12*smallBussiness
+        demand_capita  = 0.12*smallBusiness
     if event.new == 135:
-        demand_capita  = 0.135*smallBussiness
+        demand_capita  = 0.135*smallBusiness
     update_indicators()
     
 
@@ -742,7 +811,7 @@ def calculate_total_Demand():
         float: Total water demand in Mm3/yr.
     """
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365 
+        hexagons_filterd["Current Pop"] * demand_capita * smallBusiness * 365 
     ) / 1000000
     
     total = ((hexagons_filterd["Water Demand"]).sum()) + (
@@ -876,34 +945,17 @@ def create_map(lat,lon,zoom):
 
 
 m = folium.Map(
-    location=[52.38, 6.7], zoom_start=10,
+    location=[52.28, 6.7], zoom_start=10,
     tiles="Cartodb Positron"
 )
 
 
-popup_well = folium.GeoJsonPopup(
-    fields=["Name", "Balance area", "Value"],
-    aliases=["Well Name", "Balance Area", "Extraction in Mm\u00b3/yr"],
-)
-popup_hex = folium.GeoJsonPopup(
-    fields=["cityName", "Water Demand", "Population 2022"],
-)
-popup_industrial = folium.GeoJsonPopup(
-    fields=["Place", "Licensed", "Current_Extraction_2019"],
-    aliases=["Location", "Licensed Extraction", "Current Extraction"]
-)
 icon_path = "./Assets/Water Icon.png"
 icon = folium.CustomIcon(
-    icon_path,
-    icon_size=(30, 30),
-)
-
-colormap = branca.colormap.LinearColormap(
-    ["#caf0f8", "#90e0ef", "#00b4d8", "#0077b6", "#03045e"],
-    vmin=cities_clean["Water Demand"].quantile(0.0),
-    vmax=cities_clean["Water Demand"].quantile(1),
-    caption="Total water demand in Mm\u00b3/yr",
-)
+        icon_path,
+        icon_size=(30, 30),
+    )
+   
 
 def calculate_centroid(coordinates):
     """
@@ -918,7 +970,7 @@ def calculate_centroid(coordinates):
     polygon = Polygon(coordinates)
     return polygon.centroid.y, polygon.centroid.x
 
-def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
+def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
     """
     Update the layers on the map.
 
@@ -927,11 +979,34 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
     """
     global m
     
-    active = wellsLayer[wellsLayer["Active"]==True]
+    folium.TileLayer("OpenStreetMap",
+                     show=False).add_to(m)
+    
+    popup_well = folium.GeoJsonPopup(
+    fields=["Name", "Balance area", "Value"],
+    aliases=["Well Name", "Balance Area", "Extraction in Mm\u00b3/yr"],
+    )
+    popup_hex = folium.GeoJsonPopup(
+        fields=["cityName", "Water Demand", "Population 2022"],
+        aliases=["City Name","Water Demand in Mm\u00b3/yr", "Population 2022"]
+    )
+    popup_industrial = folium.GeoJsonPopup(
+        fields=["Place", "Licensed", "Current_Extraction_2019"],
+        aliases=["Location", "Licensed Extraction in Mm\u00b3/yr", "Current Extraction in Mm\u00b3/yr"]
+    )
+    
+    colormap = branca.colormap.StepColormap(
+        ["#caf0f8", "#90e0ef", "#00b4d8", "#0077b6", "#03045e"],
+        vmin=round(hexagons_filterd["Water Demand"].quantile(0.0),1),
+        vmax=round(cities_clean["Water Demand"].quantile(1),1),
+        caption="Total water demand in Mm\u00b3/yr",
+    )
+    
+    active = wellsLayer[wellsLayer["Active"] == True]
     
     folium.GeoJson(
         active,
-        name="Wells",
+        name="Extraction Wells",
         zoom_on_click=True,
         popup=popup_well,
         tooltip=folium.GeoJsonTooltip(fields=["Name"], aliases=["Well Name:"]),
@@ -953,10 +1028,10 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
                 icon_color="#d9534f", icon="industry", prefix="fa", color='lightred'
             )
         ),
+
     ).add_to(m)
     
-
-    hex = folium.GeoJson(
+    hex_layer = folium.GeoJson(
         cities_clean,
         name="City Demand",
         style_function=lambda x: {
@@ -965,26 +1040,24 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
                 if x["properties"]["Water Demand"] is not None
                 else "transparent"
             ),
-             "color": (
+            "color": (
                 "darkgray"
                 if x["properties"]["cityName"] is not None
                 else "transparent"
-                ),
+            ),
             "fillOpacity": 0.8,
             "weight": 0.7,
         },
         popup=popup_hex,
     ).add_to(m)
 
-    m.add_child(colormap)
-    
     folium.GeoJson(
         mainPipes,
         name="Main Pipelines",
-        style_function= lambda x:{ 
+        style_function=lambda x: { 
             "color": "#E27D79",
-            "weight": (4 if x["properties"]["Diameter_mm"]>350
-                       else(2 if x["properties"]["Diameter_mm"]>250
+            "weight": (4 if x["properties"]["Diameter_mm"] > 350
+                       else (2 if x["properties"]["Diameter_mm"] > 250
                        else 1)),
             "Opacity": 0.6,
         },
@@ -1004,34 +1077,32 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
                 "darkgray"
                 if x["properties"]["Balance Area"] is not None
                 else "transparent"
-                ),
+            ),
             "fillOpacity": 0.8,
             "weight": 0.7,
         }, 
-        show= False,
+        show=False,
     ).add_to(m)
 
     folium.GeoJson(
         hexagons_filterd,
-        name="Restricted NNN",
+        name="Restricted Natuurnetwerk Nederland",
         style_function=lambda x: {
             "fillColor": (
                 "#CAFAA2"
                 if x["properties"]["Type"] == "Restricted Other"
                 else "transparent"
             ),
-             "color": (
+            "color": (
                 "darkgray"
                 if x["properties"]["Balance Area"] is not None
                 else "transparent"
-                ),
+            ),
             "fillOpacity": 0.8,
             "weight": 0.7,
         },
-        show= False,
+        show=False,
     ).add_to(m)
-    
-    
     
     folium.GeoJson(
         balance_areas,
@@ -1044,12 +1115,52 @@ def update_layers(wellsLayer=active_wells_df,industryLayer=industrial):
         show=True,
         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
     ).add_to(m)
+
+    folium.LayerControl(position='topleft', autoZIndex=True).add_to(m)
+    
+    industryIcon = '''
+        var marker = L.AwesomeMarkers.icon({
+                icon_color="#d9534f", icon="industry", prefix="fa", color='lightred'
+            )});
+            '''
+    
+    # Use custom CSS to move the colormap legend to the bottom-right corner
+    legend_html = '''
+    <link rel="stylesheet" href="https://balladaniel.github.io/leaflet-dataclassification/leaflet-dataclassification.css" />
+    <script src="https://balladaniel.github.io/leaflet-dataclassification/leaflet-dataclassification.js"></script>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+           
+    
+     <div id='maplegend' class='maplegend' 
+         style='position: absolute; z-index:9999; border:2px solid grey; background-color:rgba(255, 255, 255, 0.8);
+         border-radius:6px; padding: 10px; font-size:14px; right: 20px; bottom: 20px;'>
+    
+    <div class='legend-scale'>
+        Legend
+        <ul class='legend-labels'>
+            <li><i class="fa-solid fa-arrow-up-from-ground-water" style='color:#2F4279;'></i> Water Extraction Locations</li>
+            <li><i class="fa-solid fa-industry" style='color:#D9534F;'></i> Industrial Water Extraction Locations</li>
+            <li>{colormap}</li>
+            <li>Pipes <i class="fa-solid fa-minus fa-sm" style='color:#D9534F;'></i> <250mm 
+                    <i class="fa-solid fa-minus fa-lg" style='color:#D9534F;'></i> 250mm - 350mm
+                    <i class="fa-solid fa-minus fa-2xl" style='color:#D9534F;'></i> >400mm</li>             
+            <li> f
+            <li><span style='background:orange;opacity:0.7;'></span>Medium</li>
+            <li><span style='background:green;opacity:0.7;'></span>Small</li>
+        </ul>
+     </div>
+    </div>
+    '''.format(colormap=colormap._repr_html_(), industryIcon=industryIcon) 
     
     
-    
-    folium.LayerControl().add_to(m)
+    # Add the custom legend to the map
+    m.get_root().html.add_child(folium.Element(legend_html))
 
     return m
+
 
 
 # Logarithmic function
@@ -1072,7 +1183,6 @@ def estimate_Damage_for_well(type, well_name, target_percentage):
     extents = well_row[perc_columns].values
     
     if len(perc_values) < 2:
-        print(f"Not enough data points to fit a curve for well '{well_name}'.")
         return 0
     
     # Fit a logarithmic curve to the data
@@ -1193,7 +1303,7 @@ def ScenarioBase():
     global demand_capita
     hexagons_filterd["Current Pop"]= hexagons_filterd["Pop2022"]
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365 
+        hexagons_filterd["Current Pop"] * demand_capita * smallBusiness * 365 
     ) / 1000000
     update_scenarioTitle("Population 2022")
     print("Scenario Base restored")
@@ -1210,7 +1320,7 @@ def Scenario1():
     hexagons_filterd["Current Pop"]= hexagons_filterd["Pop2022"]*1.0209
 
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365 
+        hexagons_filterd["Current Pop"] * demand_capita * smallBusiness * 365 
     ) / 1000000
     update_scenarioTitle("Autonomous Growth")
     print("Scenario 1 ran perfectly")
@@ -1227,28 +1337,28 @@ def Scenario2():
     hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]*1.0309
 
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
+        hexagons_filterd["Current Pop"] * demand_capita * smallBusiness * 365
     ) / 1000000
         
     update_scenarioTitle("Accelerated Growth")
     update_indicators()
     
-def ScenarioSmallBussinessBase():
-    global smallBussiness
+def ScenarioSmallBusinessBase():
+    global smallBusiness
     global demand_capita 
-    smallBussiness = 1.2
+    smallBusiness = 1.2
     update_indicators()
 
-def ScenarioSmallBussiness1():
-    global smallBussiness
+def ScenarioSmallBusiness1():
+    global smallBusiness
     global demand_capita 
-    smallBussiness = 1.2*1.1
+    smallBusiness = 1.2*1.1
     update_indicators()
 
-def ScenarioSmallBussiness2():
-    global smallBussiness
+def ScenarioSmallBusiness2():
+    global smallBusiness
     global demand_capita 
-    smallBussiness = 1.2*1.35
+    smallBusiness = 1.2*1.35
     update_indicators()
 
 
@@ -1302,7 +1412,7 @@ def Measure3On():
     """
     demand_capita  = ButtonDemand.value * 0.95
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
+        hexagons_filterd["Current Pop"] * demand_capita * smallBusiness * 365
     ) / 1000000
 
 def Measure3Off():
@@ -1311,7 +1421,7 @@ def Measure3Off():
     """
     demand_capita  = ButtonDemand.value
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
+        hexagons_filterd["Current Pop"] * demand_capita * smallBusiness * 365
     ) / 1000000
     
 def Measure4On():
@@ -1330,7 +1440,7 @@ def Measure4On():
         new_well_gdf,
         name="Import Water",
         zoom_on_click=True,
-        popup=popup_well,
+        # popup=popup_well,
         tooltip=folium.GeoJsonTooltip(fields=["Name"], aliases=["Well Name:"]),
         marker=folium.Marker(
             icon=folium.Icon(
@@ -1359,7 +1469,7 @@ def Measure4Off():
     try:  
         # Use .loc to identify rows where 'Name' is 'Imports' and drop them
         active_wells_df.drop(active_wells_df.loc[active_wells_df["Name"] == 'Imports'].index, inplace=True)
-        print(active_wells_df.tail())
+        
     except KeyError:
         print("Row does not exist")
 
@@ -1381,10 +1491,10 @@ def Reset(event):
         event: The event object.
     """
     demand_capita = 0.135
-    smallBussiness = 1.2
+    smallBusiness = 1.2
     hexagons_filterd["Current Pop"] = hexagons_filterd["Pop2022"]
     hexagons_filterd["Water Demand"] = (
-        hexagons_filterd["Current Pop"] * demand_capita * smallBussiness * 365
+        hexagons_filterd["Current Pop"] * demand_capita * smallBusiness * 365
     ) / 1000000
     global active_wells_df
     active_wells_df = gpd.GeoDataFrame(
@@ -1513,7 +1623,7 @@ Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", optio
                                              )
 Scenario_Button.param.watch(update_scenarios, "value")
 
-ScenarioSmall_Button = pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['State - 2022','Small Bussiness   +10% Demand','Small Bussiness   +35% Demand'], button_type='warning', styles={
+ScenarioSmall_Button = pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['State - 2022','Small Business   +10% Demand','Small Business   +35% Demand'], button_type='warning', styles={
     'width': '93%', 'border': '3px' }, orientation='vertical'
                                              )
 ScenarioSmall_Button.param.watch(update_scenariosSmall, "value")
@@ -1568,7 +1678,7 @@ ButtonReset.on_click(Reset)
 #   ''', width=300, align="start", styles={"margin": "5px"}
 # )
 
-textDivider3 = pn.pane.HTML('''<hr class="dashed"> <h3 align= "center" style="margin: 5px;">Scenarios Small bussiness</h3><hr>''')
+textDivider3 = pn.pane.HTML('''<hr class="dashed"> <h3 align= "center" style="margin: 5px;">Scenarios Small Business</h3><hr>''')
 
 textScenarioPop = pn.pane.HTML(
     '''
@@ -1591,7 +1701,7 @@ textCloseNatura = pn.pane.HTML(
 
 textMeasureDemand = pn.pane.HTML(
     '''<hr class="dashed"><h3 align= "center" style="margin: 5px;"> Demand Measures </h3> <hr>
-    <b>Water Conusmption per Capita in L/d</b>''', width=300, align="start", styles={}
+    <b>Water consumption per Capita in L/d</b>''', width=300, align="start", styles={}
 )
 
 textImport = pn.pane.HTML(
@@ -1600,12 +1710,12 @@ textImport = pn.pane.HTML(
 )
 
 textSmartM = pn.pane.HTML('''
-    <b>Use of Smart meters at homes, reduction of 5% of consumpotion</b>''', width=300, align="start", styles={}
+    <b>Use of smart meters at homes, reduction of 5% of consumption</b>''', width=300, align="start", styles={}
 )
 
 textIndustrial = pn.pane.HTML(
     '''
-    <b>Add unused water from industrial permitse </b>''', width=300, align="start", styles={})
+    <b>Add unused water from industrial permits</b>''', width=300, align="start", styles={})
 
 textEnd = pn.pane.HTML(
     '''<hr class="dashed">
@@ -1629,32 +1739,34 @@ def spacer(size):
 
 disclaimer = pn.pane.HTML('''    
                          <div style="font-family: Barlow, Arial, sans-serif; padding: 20px; color: #333; font-size: 14px;">
-    <h1 style="color: #3850A0;">Welcome to Vitalens App</h1>
-    <p>
-        This application provides a comprehensive tool for managing and analyzing water wells within the Overijssel Zuid region. It enables users to monitor well extraction capacities, operational costs, environmental impact, and other critical factors affecting water supply planning.
-    </p>
-    
-    <h2>Key Features</h2>
-    <ul>
-        <li><strong>Real-Time Data Visualization:</strong> View and interact with dynamic maps that display well locations, extraction levels, and environmental restrictions.</li>
-        <li><strong>Scenario Analysis:</strong> Simulate different water demand scenarios, including changes in population or small bussiness usage, to understand their potential impact on water supply and operational costs.</li>
-        <li><strong>Environmental Cost Assessment:</strong> Estimate environmental costs associated with CO2 emissions and drought impact for each well, and assess potential restrictions due to protected areas like Natura2000.</li>
-        <li><strong>Custom Well Management:</strong> Adjust well extraction levels and status (active or inactive) to optimize water resources and operational efficiency.</li>
-        <li><strong>Interactive Data Exploration:</strong> Easily explore detailed well data, including security of supply,  OPEX, environmental costs, and performance per balance area.</li>
-    </ul>
-    
-    <h2>Disclaimer</h2>
-    <p>
-        While this application provides valuable insights and data visualization for water management, the data used within this tool is based on various assumptions and estimates. Actual well performance, environmental impact, and operational costs may vary due to a range of factors such as real-time environmental conditions, regulatory changes, or unforeseen operational challenges.
-    </p>
-    <p>
-        <strong>Please note:</strong> The results and outputs provided by this app should be used as indicative guidance rather than precise measurements. Users are advised to consult with local experts and use verified data sources for critical decision-making.
-    </p>
-    
-    <p style="color: #666; font-size: 14px;">
-        © 2024 Vitalens App. Vitens and University of Twente. All rights reserved.
-    </p>
+    <div>
+  <h1 style="color: #3850A0;">Welcome to the Vitalens App</h1>
+  <p>
+    This app helps you manage and analyze water wells in the Overijssel Zuid region. It allows users to track well capacities, costs, environmental impact, and other important factors for planning water supplies.
+  </p>
+
+  <h2>Key Features</h2>
+  <ul>
+    <li><strong>Live Data Visualization:</strong> See and interact with well locations, extraction levels, and environmental limits.</li>
+    <li><strong>Scenario Analysis:</strong> Simulate different water demand scenarios, such as population growth or small business needs, to see how they might affect water supply and costs.</li>
+    <li><strong>Environmental Cost Estimates:</strong> Calculate environmental costs like CO2 emissions and the effects of drought for each well, and see restrictions for protected areas like Natura2000.</li>
+    <li><strong>Custom Well Management:</strong> Change the extraction levels and status (active or inactive) of wells to optimize water usage and efficiency.</li>
+    <li><strong>Interactive Data Exploration:</strong> Explore detailed well information, including supply security, operating costs, environmental impacts, and performance by area.</li>
+  </ul>
+
+  <h2>Disclaimer</h2>
+  <p>
+    This app gives useful insights and visualizations for managing water, but it is based on estimates and assumptions. Actual well performance, environmental impact, and costs may vary due to real-world factors like changing conditions or new regulations.
+  </p>
+  <p>
+    <strong>Please Note:</strong> The app’s results are for guidance only and may not be exact. For critical decisions, consult local experts and use verified data.
+  </p>
+
+  <p style="color: #666; font-size: 14px;">
+    © 2024 Vitalens App. Vitens and University of Twente. All rights reserved.
+  </p>
 </div>
+
                          
                          ''', width=700, max_height=800)
 
@@ -1696,10 +1808,9 @@ total_extraction = pn.indicators.Number(
     font_size="20pt",
     title_size="12pt",
     sizing_mode="scale_width",
-    align='center'
+    align='center',
+    colors=[(wells["Extraction_2023__Mm3_per_jr_"].sum()-0.1, 'red'), (wells["Extraction_2023__Mm3_per_jr_"].sum(), '#3850a0'),(1000, 'green')]
 )
-
-
 
 total_demand = pn.indicators.Number(
     name="Total Water Demand",
@@ -1708,7 +1819,8 @@ total_demand = pn.indicators.Number(
     font_size="20pt",
     title_size="12pt",
     default_color='#3850a0',
-    sizing_mode="scale_width", align='center'
+    sizing_mode="scale_width", align='center',
+    colors=[(original_demand-0.1, 'green'), (original_demand, '#3850a0'),(1000, 'red')]
 )
 
 total_difference = pn.indicators.Number(
@@ -1732,10 +1844,11 @@ total_opex = pn.indicators.Number(
     font_size="20pt",
     title_size="12pt",
     align="center",
-    sizing_mode="stretch_width"
+    sizing_mode="stretch_width",
+    colors=[(original_OPEX-0.1, 'green'), (original_OPEX, '#3850a0'),(1000, 'red')]
 )
 
-total_opex_TT = pn.widgets.TooltipIcon(value="Total yearly Operational costs.")
+total_opex_TT = pn.widgets.TooltipIcon(value="Total yearly Operational Expenditure.")
 
 total_capex = pn.indicators.Number(
     name="Total CAPEX",
@@ -1745,10 +1858,11 @@ total_capex = pn.indicators.Number(
     font_size="20pt",
     title_size="12pt",
     align="center",
-    sizing_mode="stretch_width"
+    sizing_mode="stretch_width",
+    colors=[(0, '#3850a0'),(1000, 'red')]
 )
 
-total_capex_TT = pn.widgets.TooltipIcon(value="Total investment costs to expand the extraction capacity.")
+total_capex_TT = pn.widgets.TooltipIcon(value="Total investment expenditure to expand the extraction capacity.")
 
 
 # balance_opex = calculate_total_OPEX_by_balance()
@@ -1847,12 +1961,13 @@ pipes_TT = pn.widgets.TooltipIcon(value="Each icon represents the number of conn
 pipes_pane =pn.Column(pipes_TT, generate_pipes_SVG("Reggeland","Stedenband",1), generate_pipes_SVG("Reggeland","Hof van Twente", 2), generate_pipes_SVG("Reggeland","Dinkelland", 1), generate_pipes_SVG("Hof van Twente", "Stedeban", 3), generate_pipes_SVG("Dinkelland", "Stedeband", 1), width=250)
 
 co2_pane = pn.indicators.Number(
-    name="CO\u2082 Emmission Cost",
+    name="CO\u2082 Emission Cost",
     value=calculate_total_CO2_cost(),
     format="{value:0,.2f} M\u20AC/yr",
     default_color='#3850a0',
     font_size="20pt",
     title_size="12pt",
+    colors=[(original_CO2-0.1, 'green'), (original_CO2, '#3850a0'),(1000, 'red')]
 )
 
 drought_pane = pn.indicators.Number(
@@ -1862,12 +1977,8 @@ drought_pane = pn.indicators.Number(
     default_color='#3850a0',
     font_size="20pt",
     title_size="12pt",
+    colors=[(original_Draught-0.1, 'green'), (original_Draught, '#3850a0'),(1000, 'red')]
 )
-
-# df_display = pn.pane.Markdown(update_df_display())
-#df_Hexagons = pn.pane.DataFrame(hexagons_filterd.head(), name="Hexagons data")
-
-
 
 lzh = pn.indicators.Gauge(
     name=f"Overall LZH",
@@ -1983,13 +2094,13 @@ main1 = pn.GridSpec(sizing_mode="scale_both")
 main1[0, 1:2] = pn.Column(MapTitle, map_pane)
 
 IndicatorsPane = pn.GridSpec(sizing_mode="stretch_both")
-IndicatorsPane[0,0:1] = pn.Column(
+IndicatorsPane[0,0:2] = pn.Column(
     indicatorsArea, lzh_definition, textDivider0, Supp_dem, textDivider1, CostPane, textDivider2, natura_pane,
     scroll=True
 )
-IndicatorsPane[0,1] = pn.Column(
+IndicatorsPane[0,2] = pn.Column(
     Env_pane, right_pane, textDivider0, pipes_pane,
-    sizing_mode="scale_width",
+    sizing_mode="stretch_both",
     scroll=True
 )
 
