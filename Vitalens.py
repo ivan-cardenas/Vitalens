@@ -5,7 +5,7 @@ import numpy as np
 import fiona
 from bokeh.models.formatters import PrintfTickFormatter
 import folium
-from folium.features import Template
+from folium.features import Template, DivIcon
 # import keplergl
 from shapely.geometry import shape, Polygon, Point
 from lonboard import Map, PathLayer, ScatterplotLayer
@@ -135,37 +135,45 @@ hr.dashed {
             font-weight: bold;
             font-size: 90%;
             }
-        .maplegend .legend-scale ul {
-            margin: 0;
-            margin-bottom: 5px;
-            padding: 0;
-            float: left;
-            list-style: none;
-            }
-        .maplegend .legend-scale ul li {
-            list-style: none;
-            margin-left: 0;
-            line-height: 18px;
-            margin-bottom: 2px;
-            }
-        .maplegend ul.legend-labels li span {
-            font-size: smaller;
-            display: block;
-            float: left;
-            height: 16px;
-            width: 30px;
-            margin-right: 5px;
-            margin-left: 0;
-            border: 1px solid #999;
-            }
-        .maplegend .legend-source {
-            font-size: 80%;
-            color: #777;
-            clear: both;
-            }
-        .maplegend a {
-            color: #777;
-            }
+.maplegend .legend-scale ul {
+    margin: 0;
+    margin-bottom: 5px;
+    padding: 0;
+    float: left;
+    list-style: none;
+    }
+.maplegend .legend-scale ul li {
+    list-style: none;
+    margin-left: 0;
+    line-height: 18px;
+    margin-bottom: 2px;
+    }
+.maplegend ul.legend-labels li span {
+    font-size: smaller;
+    display: block;
+    float: left;
+    height: 16px;
+    width: 30px;
+    margin-right: 5px;
+    margin-left: 0;
+    border: 1px solid #999;
+    }
+.maplegend .legend-source {
+    font-size: 80%;
+    color: #777;
+    clear: both;
+    }
+.maplegend a {
+    color: #777;
+    }
+    
+.Label {
+    text-shadow:
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff;  
+}
 
 '''
 ]
@@ -280,9 +288,9 @@ active_wells_df.astype({"Num_Wells": "int32", "Ownership": "int32"}, copy=False)
 active_wells_df.set_crs(epsg=28992)
 
 original_OPEX = active_wells_df["OPEX"].sum()/1000000
-print(original_OPEX)
 original_CO2 = (active_wells_df["CO2_m3"]*active_wells_df["Current Extraction"]).sum()
 original_Draught = (active_wells_df["Drought_m3"]*active_wells_df["Current Extraction"]).sum()
+original_excess = active_wells_df["Max_permit"].sum() - active_wells_df["Current Extraction"].sum()
 
 cities = gpd.read_file(GPKG_FILE, layer="CitiesHexagonal")
 
@@ -724,7 +732,7 @@ def update_scenarios(event):
     if event.new == "Population 2035":
         Scenario1()
         print('scenario 1 active')
-    if event.new == "Population 2035 +1%":
+    if event.new == "Population 2035 +1% increase":
         print('scenario 2 active')
         Scenario2()
     if event.new == "Population 2022":
@@ -1115,6 +1123,22 @@ def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
         show=True,
         tooltip=folium.GeoJsonTooltip(fields=['Balance Area'], labels=True)
     ).add_to(m)
+    
+    BA_4326 = balance_areas.to_crs(4326)
+    BA_4326["centroid"] = BA_4326.centroid
+    
+    for _, r in BA_4326.iterrows():
+        lat = r["centroid"].y
+        lon = r["centroid"].x
+        name = r["Balance Area"]
+        print(lat,lon)
+        folium.Marker(
+        location=[lat, lon],
+        icon=DivIcon(
+            icon_size=(150,36),
+            icon_anchor=(0,0),
+            html='<div class="Label" style="font-size: 10pt; color: #000000; ">{name}</div>'.format(name=name),)
+        ).add_to(m)
 
     folium.LayerControl(position='topleft', autoZIndex=True).add_to(m)
     
@@ -1147,9 +1171,10 @@ def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
             <li>Pipes <i class="fa-solid fa-minus fa-sm" style='color:#D9534F;'></i> <250mm 
                     <i class="fa-solid fa-minus fa-lg" style='color:#D9534F;'></i> 250mm - 350mm
                     <i class="fa-solid fa-minus fa-2xl" style='color:#D9534F;'></i> >400mm</li>             
-            <li> f
-            <li><span style='background:orange;opacity:0.7;'></span>Medium</li>
-            <li><span style='background:green;opacity:0.7;'></span>Small</li>
+            <li><i class="fa-solid fa-folder" style='color: darkgreen;'></i> Natura200 Protected Area</li>
+            <li><i class="fa-solid fa-folder" style='color: #CAFAA2;'></i> Restricted Natuurnetwerk Nederland Area</li>
+            <li><i class="fa-regular fa-folder" style='color:#93419F;'></i> Balance Area</li>
+
         </ul>
      </div>
     </div>
@@ -1210,7 +1235,7 @@ def update_scenarioTitle(new_title):
         if base_title in text:
             text.remove(base_title)
         text.append(new_title)
-    if Scenario_Button.value == "Population 2035 +1%":
+    if Scenario_Button.value == "Population 2035 +1% increase":
         if "Autonomous Growth" in text:
             text.remove("Autonomous Growth")
         if base_title in text:
@@ -1618,7 +1643,7 @@ for balance_area, layouts in balance_area_buttons.items():
     
 
     
-Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Population - 2022','Population 2035','Population 2035 +1%'], button_type='warning', styles={
+Scenario_Button =pn.widgets.RadioButtonGroup(name="Measures Button Group", options=['Population - 2022','Population 2035','Population 2035 +1% increase'], button_type='warning', styles={
     'width': '93%', 'border': '3px' }, orientation='vertical'
                                              )
 Scenario_Button.param.watch(update_scenarios, "value")
@@ -1678,7 +1703,8 @@ ButtonReset.on_click(Reset)
 #   ''', width=300, align="start", styles={"margin": "5px"}
 # )
 
-textDivider3 = pn.pane.HTML('''<hr class="dashed"> <h3 align= "center" style="margin: 5px;">Scenarios Small Business</h3><hr>''')
+textDivider3 = pn.pane.HTML('''<hr class="dashed"> <h3 align= "center" style="margin: 5px;">Scenarios Small Business  <svg xmlns="http://www.w3.org/2000/svg" height="15px" width="15px" viewBox="0 0 512 512" style="cursor:pointer; color: lightgray;"
+     ><g><title>"Small Business include bakeries, hair saloons, retail stores, shopping malls, etc."</title><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/><g></svg> </h3> <hr>''')
 
 textScenarioPop = pn.pane.HTML(
     '''
@@ -1886,6 +1912,7 @@ excess_cap = pn.indicators.Number(
     default_color='#3850a0',
     font_size="20pt",
     title_size="12pt",
+    colors=[(original_excess-0.1, 'red'), (original_excess, '#3850a0'),(1000, 'green')]
 
 )
 
@@ -2088,10 +2115,12 @@ translate_widget = pn.pane.HTML("""
     """)
 
 MapTitle = pn.pane.HTML('''<b style="font-size: large; float: right; color: #2f4279;">Overijssel Zuid</b>''')
+Map_help = pn.widgets.TooltipIcon(value="The data represented in this map is static. I.e. it does not change when changing the widgets on the left side of the app. It represents population data from Dec-2022 and the water extraction from 2023 \n\nThe Balance Areas, represent areas inside the Overijssel Zuid Cluster that are fed directly by at least a production site and are linked to another balance area for dynamic water distribution.", width = 10, align='end')
 
+MapTitle_TT = pn.Row( Map_help,MapTitle, align="end", sizing_mode="scale_width")
 
 main1 = pn.GridSpec(sizing_mode="scale_both")
-main1[0, 1:2] = pn.Column(MapTitle, map_pane)
+main1[0, 1:2] = pn.Column(MapTitle_TT, map_pane)
 
 IndicatorsPane = pn.GridSpec(sizing_mode="stretch_both")
 IndicatorsPane[0,0:2] = pn.Column(
