@@ -64,7 +64,7 @@ cssStyle = ['''
 ::-webkit-scrollbar-thumb
 {
 	background-color: #CCC5B9 !important;
-    radius: 1px
+    border-radius: 1px;
 }
 
 #sidebar, #main {
@@ -125,7 +125,7 @@ hr.dashed {
 
 
 .bk-tab.bk-active {
-    background: #d3d3cf !imporant;
+    background: #d3d3cf !important;
     color: #d9534f !important;
 }
 
