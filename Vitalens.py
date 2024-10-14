@@ -8,7 +8,6 @@ import folium
 from folium.features import Template, DivIcon
 # import keplergl
 from shapely.geometry import shape, Polygon, Point
-from lonboard import Map, PathLayer, ScatterplotLayer
 import branca
 from branca.element import Template, MacroElement
 from functools import partial
@@ -104,6 +103,7 @@ hr.dashed {
 }
 
 .bk-btn-success{
+  background-color: #3872A1;
   background-position: center;
   font-weight: 400 !important;
   font-size: small !important;
@@ -115,7 +115,8 @@ hr.dashed {
 }
 
 .bk-btn-warning {
-  margin: 3px;   
+  margin: 3px;
+  background-color: #f1b858;   
 }
 
 .accordion-header button{
@@ -310,8 +311,6 @@ original_OPEX = active_wells_df["OPEX"].sum()/1e6
 original_CO2 = (active_wells_df["CO2_m3"]*active_wells_df["Current Extraction"]).sum()
 original_Draught = (active_wells_df["Drought_m3"]*active_wells_df["Current Extraction"]).sum()
 original_excess = active_wells_df["Max_permit"].sum() - active_wells_df["Current Extraction"].sum()
-
-cities = gpd.read_file(GPKG_FILE, layer="CitiesHexagonal")
 
 cities_clean = gpd.GeoDataFrame(
     {
@@ -617,7 +616,7 @@ def generate_area_SVG (n):
 def generate_pipes_SVG(origin, destination, n):
     SVG = '''<?xml version="1.0" encoding="UTF-8"?><svg id="Pipeline_1" height="45px" width="45px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35"><defs><style>.cls-1{fill:#41537b;}.cls-2{fill:#a2aea7;}.cls-3{fill:#bdcbc3;}.cls-4{fill:#d9cdf1;}.cls-5{fill:#3b5b6e;}.cls-6{fill:#4c6fb0;}.cls-7{fill:#374766;}.cls-8{fill:#4d83b1;}.cls-9{fill:#2c535f;}.cls-10{fill:#3a6284;}.cls-11{fill:#3f6697;}.cls-12{fill:#3c6585;}</style></defs><path class="cls-12" d="M34.35,12.01c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M33.5,12.55c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M30.75,7.98c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M33.54,12.53c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M32.69,13.06c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M29.94,8.5c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M32.75,13.04c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M31.9,13.57c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M29.15,9c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-11" d="M25.15,9.94l-.83-.89,1.49-.89c.06-.04.11-.08.17-.11h.01s0,0,0,0c.49-.26,1.15-.21,1.87.2,1.49.85,2.71,2.98,2.71,4.72,0,.76-.23,1.32-.61,1.65h0s0,0,0,0c-.1.08-.21.15-.32.2l-1.5.92-.8-1.55c-1.21-.99-2.14-2.75-2.18-4.25Z"/><path class="cls-10" d="M28.92,13.96c0-1.75-1.22-3.87-2.71-4.72-1.49-.85-2.71-.14-2.71,1.59s1.22,3.85,2.71,4.72c1.49.87,2.71.16,2.71-1.59Z"/><path class="cls-2" d="M28.06,13.47c0-1.19-.83-2.64-1.85-3.22-1.02-.58-1.85-.09-1.85,1.08s.83,2.63,1.85,3.22c1.02.6,1.85.11,1.85-1.08Z"/><path class="cls-4" d="M26.25,14.1c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M25.12,14.8c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M24.12,15.43c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M23.65,16.51c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M22.99,16.13c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M22.1,16.66c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M20.97,17.36c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M19.97,18c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M19.5,19.07c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M18.84,18.7c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M18.02,19.2c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M16.89,19.9c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M15.9,20.53c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-1" d="M15.42,21.61c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-7" d="M14.77,21.23c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M13.87,21.76c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M12.74,22.46c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-4" d="M11.75,23.1c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-6" d="M28.16,13.72c0-1.33-.93-2.94-2.06-3.59-.16-.09-.31-.15-.45-.2h0c-.56-.22-1.04.05-1.04.05l-13.3,8.27-.27.16h0s-.09.05-.13.08l-.52.32-.49.29h0c-.06.03-.11.07-.16.11l-1.97,1.22.51.54s0,.07,0,.11c0,1.25.85,2.79,1.92,3.5l.48.93,1.14-.7c.09-.04.17-.09.25-.15h0s0,0,0,0c0,0,0,0,.01,0l.87-.54c.09-.04.17-.09.25-.15h0s0,0,0,0c0,0,0,0,0,0l2.8-1.72c.07-.03.13-.07.19-.12l.95-.58c.06-.03.12-.07.18-.11l10.25-6.31s.31-.19.4-.47h0c.13-.24.21-.55.21-.93Z"/><path class="cls-3" d="M11.27,24.17c0-1.33-.93-2.94-2.06-3.59-1.13-.65-2.06-.1-2.06,1.21s.93,2.93,2.06,3.59c1.13.66,2.06.12,2.06-1.21Z"/><path class="cls-2" d="M10.61,23.79c0-.91-.63-2.01-1.41-2.45-.77-.44-1.41-.07-1.41.82s.63,2,1.41,2.45c.77.45,1.41.08,1.41-.82Z"/><path class="cls-11" d="M5.95,20.81l-1-1.07,1.79-1.07c.07-.05.14-.1.21-.14h.01s0,0,0,0c.59-.31,1.38-.26,2.24.24,1.79,1.02,3.26,3.58,3.26,5.68,0,.91-.28,1.59-.74,1.98h0s0,0,0,0c-.12.1-.25.18-.39.24l-1.8,1.11-.96-1.86c-1.46-1.19-2.57-3.31-2.62-5.1Z"/><path class="cls-8" d="M10.48,25.65c0-2.1-1.47-4.65-3.26-5.68-1.79-1.02-3.26-.17-3.26,1.91s1.47,4.63,3.26,5.68c1.79,1.05,3.26.19,3.26-1.91Z"/><path class="cls-12" d="M10.95,25.94c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M10.1,26.48c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M7.35,21.91c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M10.14,26.46c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M9.29,26.99c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M6.54,22.42c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/><path class="cls-12" d="M9.35,26.97c0-2.53-1.77-5.6-3.92-6.83-1.11-.64-2.12-.67-2.84-.21h0l-.68.44h.2c-.38.48-.61,1.18-.61,2.07,0,2.49,1.77,5.57,3.92,6.83.79.46,1.52.61,2.14.5l-.11.23.67-.43h0c.75-.4,1.22-1.3,1.22-2.61Z"/><path class="cls-5" d="M8.5,27.5c0-2.53-1.77-5.6-3.92-6.83-2.16-1.23-3.92-.2-3.92,2.3s1.77,5.57,3.92,6.83c2.16,1.26,3.92.23,3.92-2.3Z"/><path class="cls-9" d="M5.75,22.93c-.36-.4-.75-.73-1.17-.97-1.55-.88-2.81-.14-2.81,1.64,0,1.68,1.11,3.72,2.53,4.71.09.07.19.13.28.18,1.55.9,2.81.16,2.81-1.64,0-1.32-.68-2.85-1.64-3.93Z"/></svg>'''
     fig =pn.pane.HTML(SVG*n)
-    OD = pn.pane.HTML(f'<p style="color:#3850A0; font-size:14px; margin:4px;">Pipes from <b>{origin} to {destination}</b>:  ')
+    OD = pn.pane.HTML(f'<p style="color:#3850A0; font-size:14px; margin:4px;">Leidingen van \n<b>{origin} naar {destination}</b>:  ')
     pane = pn.Row(OD, fig)
     return pane
 
@@ -772,7 +771,7 @@ def update_scenariosSmall(event):
     if event.new == "Kleine Bedrijven   +35% Vraag":
         print('scenario 2 klein actief')
         ScenarioSmallBusiness2()
-    if event.new == "Status - 2022":
+    if event.new == "Kleine Bedrijven - 2022":
         print("Origineel Scenario")
         ScenarioSmallBusinessBase()
     update_indicators()
@@ -826,14 +825,17 @@ def styleWellValue (Wellvalue, maxValue):
 
 def current_demand(event):
     global demand_capita 
+    if ButtonSmartMeter.value:
+        sm=0.95
+    else: sm=1
     if event.new == 90:
-        demand_capita  = 0.09*smallBusiness
+        demand_capita  = 0.09*sm
     if event.new == 100:
-        demand_capita  = 0.1*smallBusiness
+        demand_capita  = 0.1*sm
     if event.new == 120:
-        demand_capita  = 0.12*smallBusiness
+        demand_capita  = 0.12*sm
     if event.new == 135:
-        demand_capita  = 0.135*smallBusiness
+        demand_capita  = 0.135*sm
     update_indicators()
     
 
@@ -979,8 +981,8 @@ def create_map(lat,lon,zoom):
 
 
 m = folium.Map(
-    location=[52.28, 6.7], zoom_start=10,
-    tiles="Cartodb Positron"
+    location=[52.28, 6.7], zoom_start=11,
+    tiles="Cartodb Positron",
 )
 
 
@@ -1013,8 +1015,10 @@ def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
     """
     global m
     
-    folium.TileLayer("OpenStreetMap",
+    folium.TileLayer("OpenStreetMap", name="OpenStreetMap",
                      show=False).add_to(m)
+    folium.TileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', name="Satellite Imagery", 
+                     attr="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community", show=False).add_to(m)
     
     popup_well = folium.GeoJsonPopup(
         fields=["Name", "Balance area", "Value"],
@@ -1156,6 +1160,8 @@ def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
     BA_4326 = balance_areas.to_crs(4326)
     BA_4326["centroid"] = BA_4326.centroid
     
+    
+    
     for _, r in BA_4326.iterrows():
         lat = r["centroid"].y
         lon = r["centroid"].x
@@ -1166,8 +1172,24 @@ def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
         icon=DivIcon(
             icon_size=(150,36),
             icon_anchor=(0,0),
-            html='<div class="Label" style="font-size: 10pt; color: #000000; ">{name}</div>'.format(name=name),)
+            html='<div class="Label" style="font-size: 12pt; color: #F29544; text-align: center;"><b>Balansgebied \n{name}</b></div>'.format(name=name),)
         ).add_to(m)
+     
+    # cities_4326 = cities_clean.to_crs(4326)   
+    # cities_4326["centroid"] = cities_4326.centroid
+        
+    # for _,r in cities_4326.iterrows():
+    #     lat = r["centroid"].y
+    #     lon = r["centroid"].x
+    #     name = r["cityName"]
+    #     print(lat,lon)
+    #     folium.Marker(
+    #     location=[lat, lon],
+    #     icon=DivIcon(
+    #         icon_size=(150,36),
+    #         icon_anchor=(0,0),
+    #         html='<div class="Label" style="font-size: 12pt; color: #282D3D; text-align: center;">{name}</div>'.format(name=name),)
+    #     ).add_to(m)
 
     folium.LayerControl(position='topleft', autoZIndex=True).add_to(m)
     
@@ -1301,7 +1323,7 @@ def update_scenarioTitle(new_title):
             text.remove(base_title)
         if new_title not in text:
             text.append(new_title)
-    elif ScenarioSmall_Button.value == "Status - 2022":
+    elif ScenarioSmall_Button.value == "Kleine Bedrijven - 2022":
         if "Kleine Bedrijven Versnelde Groei" in text:
             text.remove("Kleine Bedrijven Versnelde Groei")
         if "Kleine Bedrijven Autonome Groei" in text:
@@ -1641,9 +1663,9 @@ def Reset(event):
     }
 )
     Scenario_Button.value = 'Bevolking - 2022'
-    ScenarioSmall_Button.value = 'Status - 2022'
+    ScenarioSmall_Button.value = 'Kleine Bedrijven - 2022'
     ButtonDemand.value = 135
-    ButtonSmallWells.value, ButtonCloseNatura.value, ButtonImportWater.value, ButtonSmartMeter.value = False, False, False, False
+    ButtonSmallWells.value, ButtonCloseNatura.value, ButtonImportWater.value, ButtonSmartMeter.value, ButtonAddExtraIndustrial.value = False, False, False, False, False
     update_scenarioTitle("Status - 2022")
     update_indicators()
 
@@ -1658,10 +1680,12 @@ def update_indicators(arg=None):
     co2_pane.value= calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
     # update_balance_opex()
-    # update_balance_lzh_gauges()
+    update_balance_lzh_gauges()
     total_demand.value = calculate_total_Demand()
     total_difference.value = total_extraction.value - total_demand.value
     lzh.value = calculate_lzh()
+    Pop_pane.value = hexagons_filterd["Current Pop"].sum()
+    consumption_pane.value = demand_capita*1000
     
 
 
@@ -1756,7 +1780,7 @@ Scenario_Button = pn.widgets.RadioButtonGroup(name="Maatregelenknop Groep", opti
                                              )
 Scenario_Button.param.watch(update_scenarios, "value")
 
-ScenarioSmall_Button = pn.widgets.RadioButtonGroup(name="Maatregelenknop Groep", options=['Status - 2022', 'Kleine Bedrijven   +10% Vraag', 'Kleine Bedrijven   +35% Vraag'], button_type='warning', styles={
+ScenarioSmall_Button = pn.widgets.RadioButtonGroup(name="Maatregelenknop Groep", options=['Kleine Bedrijven - 2022', 'Kleine Bedrijven   +10% Vraag', 'Kleine Bedrijven   +35% Vraag'], button_type='warning', styles={
     'width': '93%', 'border': '3px' }, orientation='vertical'
                                              )
 ScenarioSmall_Button.param.watch(update_scenariosSmall, "value")
@@ -2096,18 +2120,17 @@ natureDamage_TT = pn.widgets.TooltipIcon(value='Dit gebied komt overeen met de o
 keukenhofsMid = pn.bind(generate_area_SVG, natureMidDamage_value)
 keukenhofsHigh = pn.bind(generate_area_SVG, natureHighDamage_value)
 keuk_text = pn.pane.HTML("<p style='font-size: small;'>Weergegeven in aantal stadscentra van Enschede</p>")
-natura_pane = pn.Column(natureDamage_TT, natureHighDamage_value, spacer(10), keukenhofsHigh, natureMidDamage_value, spacer(50), keukenhofsMid, keuk_text, sizing_mode='stretch_both')
+natura_pane = pn.Column(natureDamage_TT, natureHighDamage_value, spacer(10), keukenhofsHigh, natureMidDamage_value, spacer(10), keukenhofsMid, keuk_text, sizing_mode='scale_both')
 
 pipes_TT = pn.widgets.TooltipIcon(value="Elk pictogram vertegenwoordigt het aantal verbindingen tussen twee balansgebieden, dit is een indicator van kwetsbaarheid in het systeem.")
 
-pipes_pane = pn.Column(
+pipes_pane = pn.Row(
     pipes_TT, 
     generate_pipes_SVG("Reggeland", "Stedenband", 1), 
     generate_pipes_SVG("Reggeland", "Hof van Twente", 2), 
     generate_pipes_SVG("Reggeland", "Dinkelland", 1), 
     generate_pipes_SVG("Hof van Twente", "Stedenband", 3), 
     generate_pipes_SVG("Dinkelland", "Stedenband", 1), 
-    width=350
 )
 
 co2_pane = pn.indicators.Number(
@@ -2133,9 +2156,9 @@ drought_pane = pn.indicators.Number(
 lzh = pn.indicators.Gauge(
     name="Algemene LZH",
     value=calculate_lzh(),
-    bounds=(0, 150),
+    bounds=(0, 220),
     format="{value} %",
-    colors=[(0.66, "#D9534F"), (0.8, "#f2bf57"), (0.9, "#92C25B"), (1, "#8DCEC0")],
+    colors=[(0.455, "#D9534F"), (0.545, "#f2bf57"), (0.6136, "#92C25B"), (1, "#446526")],
     custom_opts={
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
@@ -2145,19 +2168,18 @@ lzh = pn.indicators.Gauge(
 
 lzh.param.watch(update_indicators, "value")
 lzh_definition = pn.pane.HTML("LZH: Het is het percentage van de vraag naar drinkwater dat door de levering wordt gedekt")
-lzh_tooltip = pn.widgets.TooltipIcon(value="LZH: Leveringszekerheid, is het percentage van de vraag naar drinkwater dat door de levering wordt gedekt. Je kunt de LZH voor elk balansgebied zien door de tabbladen aan de rechterkant te selecteren. Deze waarden gaan uit van een gesloten systeem.", width=10, align='end')
+lzh_tooltip = pn.pane.HTML("LZH: Leveringszekerheid, is het percentage van de vraag naar drinkwater dat door de levering wordt gedekt. Je kunt de LZH voor elk balansgebied zien door de tabbladen aan de rechterkant te selecteren. Deze waarden gaan uit van een gesloten systeem.")
 
-# LZH for each balance area - currently not on display
-"""
+
 balance_lzh_gauges = {}
 balance_lzh_values = calculate_lzh_by_balance()
 for area, value in balance_lzh_values.items():
     gauge = pn.indicators.Gauge(
         name=f"LZH \n{area}",
         value=value,
-        bounds=(0, 630),
+        bounds=(0, 780),
         format="{value} %",
-        colors=[(0.2, "#D9534F"), (0.24, "#f2bf57"),(0.27, "#92C25B"), (1, "#8DCEC0")],
+        colors=[(0.128, "#D9534F"), (0.154, "#f2bf57"),(0.173, "#92C25B"), (1, "#446526")],
         custom_opts={
         "pointer": {"interStyle": {"color": "auto"}},
         "detail": {"valueAnimation": True, "color": "inherit"},
@@ -2165,7 +2187,7 @@ for area, value in balance_lzh_values.items():
     align=("center",'center'), height = 250, title_size = 14
     )
     balance_lzh_gauges[area] = gauge
-"""
+
 
 
 def printResults(filename1):
@@ -2192,10 +2214,8 @@ file_create.on_click(on_button_click)
 # lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"))
 Env_pane = pn.Column(co2_pane, drought_pane)
 
-# indicatorsArea = pn.GridSpec(sizing_mode="scale_both")
-# indicatorsArea = pn.Tabs(lzh, *balance_lzh_gauges.values(), ("Help",lzh_tooltip), align=("center", "center"), sizing_mode="scale_height", tabs_location="right")
-
-
+indicatorsArea = pn.GridSpec(sizing_mode="scale_both")
+indicatorsArea = pn.Tabs(lzh, *balance_lzh_gauges.values(), ("Help",lzh_tooltip), align=("center", "center"), sizing_mode="scale_height", tabs_location="right")
 
 
 CostPane = pn.Row(
@@ -2216,7 +2236,24 @@ app_title = pn.pane.Markdown("## Scenario: State - 2022", styles={
     "color": "#2f4279"
 })
 
+Pop_pane = pn.indicators.Number(
+    name="Bevolking",
+    value=0,
+    format="{value:0,.0f} inwoners",
+    default_color='#3850a0',
+    font_size="20pt",
+    title_size="12pt",
+)
 
+consumption_pane = pn.indicators.Number(
+    name="Verbruik",
+    value=demand_capita*1000,
+    format="{value:0,.0f} L/inwoner",
+    default_color='#3850a0',
+    font_size="20pt",
+    title_size="12pt",
+    colors=[(135 - 0.1, '#92C25B'), (135, '#3850a0'), (1000, '#D9534F')]
+)
 
 MapTitle = pn.pane.HTML('''<b style="font-size: large; float: right; color: #2f4279;">Overijssel Zuid</b>''')
 Map_help = pn.widgets.TooltipIcon(value="De gegevens die op deze kaart worden weergegeven zijn statisch. Dit betekent dat ze niet veranderen wanneer de widgets aan de linkerkant van de app worden aangepast. Ze vertegenwoordigen bevolkingsgegevens van december 2022 en de waterwinning van 2023.\n\nDe Balansgebieden vertegenwoordigen gebieden binnen het Overijssel Zuid Cluster die direct worden gevoed door ten minste een productielocatie en zijn gekoppeld aan een ander balansgebied voor dynamische waterverdeling.", width=10, align='end')
@@ -2225,20 +2262,20 @@ Map_help = pn.widgets.TooltipIcon(value="De gegevens die op deze kaart worden we
 MapTitle_TT = pn.Row( Map_help,MapTitle, align="end", sizing_mode="scale_width")
 
 main1 = pn.GridSpec(sizing_mode="scale_both")
-main1[0, 1:2] = pn.Column(MapTitle_TT, map_pane)
+main1[0, 2:5] = pn.Column(MapTitle_TT, map_pane, pipes_pane )
 
 IndicatorsPane = pn.GridSpec(sizing_mode="stretch_both")
-IndicatorsPane[0,0:2] = pn.Column(
-    lzh, lzh_definition, textDivider0, Supp_dem, textDivider1, CostPane, textDivider2, natura_pane,
+IndicatorsPane[0,0:3] = pn.Column(
+    indicatorsArea, textDivider0, Supp_dem, textDivider1, CostPane, textDivider2, natura_pane,
     scroll=True
 )
-IndicatorsPane[0,2] = pn.Column(
-    Env_pane, right_pane, textDivider0, pipes_pane,
-    sizing_mode="stretch_both",
+IndicatorsPane[0,3:5] = pn.Column(
+    Pop_pane, consumption_pane, textDivider1, Env_pane, right_pane,
+    sizing_mode="scale_width",
     scroll=True
 )
 
-main1[0, 0] = pn.Column(app_title, IndicatorsPane, sizing_mode="scale_both")
+main1[0, 0:2] = pn.Column(app_title, IndicatorsPane, sizing_mode="scale_both")
 
 
 Box = pn.template.MaterialTemplate(
@@ -2273,6 +2310,7 @@ def total_extraction_update():
     co2_pane.value = calculate_total_CO2_cost()
     drought_pane.value = calculate_total_Drought_cost()
     flaotingDisclaimer
+    Pop_pane.value = hexagons_filterd["Current Pop"].sum()
 
 total_extraction_update()
 Box.servable()
