@@ -1166,7 +1166,6 @@ def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
         lat = r["centroid"].y
         lon = r["centroid"].x
         name = r["Balance Area"]
-        print(lat,lon)
         folium.Marker(
         location=[lat, lon],
         icon=DivIcon(
@@ -1221,7 +1220,7 @@ def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
             <li>Leidingen <i class="fa-solid fa-minus fa-sm" style='color:#D9534F;'></i> <250mm 
                     <i class="fa-solid fa-minus fa-lg" style='color:#D9534F;'></i> 250mm - 350mm
                     <i class="fa-solid fa-minus fa-2xl" style='color:#D9534F;'></i> >400mm</li>             
-            <li><i class="fa-solid fa-folder" style='color: darkgreen;'></i> Natura200 Beschermd Gebied</li>
+            <li><i class="fa-solid fa-folder" style='color: darkgreen;'></i> Natura2000 Beschermd Gebied</li>
             <li><i class="fa-solid fa-folder" style='color: #CAFAA2;'></i> Beperkt Natuurnetwerk Nederland Gebied</li>
             <li><i class="fa-regular fa-folder" style='color:#93419F;'></i> Balansgebied</li>
 
@@ -1266,6 +1265,7 @@ def estimate_Damage_for_well(type, well_name, target_percentage):
         try:
             popt, _ = curve_fit(log_func, perc_values, extents)
             # Use the fitted curve to predict the extent at the target percentage
+            print (well_row[0], *popt)
             estimated_extent = log_func(target_percentage, *popt)                
             return estimated_extent
         except Exception as e:
@@ -1908,7 +1908,7 @@ disclaimer = pn.pane.HTML('''<div style="font-family: Barlow, Arial, sans-serif;
 
     <h2>Belangrijkste functies</h2>
     <ul>
-      <li><strong>Live Datavisualisatie:</strong> Bekijk en werk samen met putlocaties, extractieniveaus en milieugrenzen.</li>
+      <li><strong>Datavisualisatie:</strong> Bekijk en werk samen met putlocaties, extractieniveaus en milieugrenzen.</li>
       <li><strong>Scenarioanalyse:</strong> Simuleer verschillende vraagscenario's voor water, zoals bevolkingsgroei of de behoeften van kleine bedrijven, om te zien hoe deze de watervoorziening en kosten kunnen beïnvloeden.</li>
       <li><strong>Milieukostenramingen:</strong> Bereken milieukosten zoals CO2-uitstoot en de effecten van droogte voor elke put, en bekijk de beperkingen voor beschermde gebieden zoals Natura2000.</li>
       <li><strong>Aangepast putbeheer:</strong> Verander de extractieniveaus en status (actief of inactief) van putten om watergebruik en efficiëntie te optimaliseren.</li>
@@ -2046,7 +2046,7 @@ total_capex_TT = pn.widgets.TooltipIcon(value="Totale investeringsuitgaven (CAPE
 excess_cap = pn.indicators.Number(
     name="Overcapaciteit",
     value=calculate_available(),
-    format="{value:0.2f} Mm\u00b3/yr",
+    format="{value:0.2f} Mm\u00b3/jr",
     default_color='#3850a0',
     font_size="20pt",
     title_size="12pt",
@@ -2060,7 +2060,7 @@ excess_cap_row = pn.Row(excess_cap, excess_cap_TT)
 industrial_extract = pn.indicators.Number(
     name="Industriële Wateronttrekking",
     value=calculate_industrial_extract(),
-    format="{value:0.2f} Mm\u00b3/yr",
+    format="{value:0.2f} Mm\u00b3/jr",
     default_color='#3850a0',
     font_size="20pt",
     title_size="12pt",
