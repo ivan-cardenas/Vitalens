@@ -8,11 +8,11 @@ import folium
 from folium.features import Template, DivIcon
 # import keplergl
 from shapely.geometry import shape, Polygon, Point
-from lonboard import Map, PathLayer, ScatterplotLayer
+# from lonboard import Map, PathLayer, ScatterplotLayer
 import branca
 from branca.element import Template, MacroElement
 from functools import partial
-import printingReport
+# import printingReport
 import html
 from io import StringIO
 import sourcetypes
