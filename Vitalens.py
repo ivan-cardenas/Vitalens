@@ -12,7 +12,7 @@ from shapely.geometry import shape, Polygon, Point
 import branca
 from branca.element import Template, MacroElement
 from functools import partial
-# import printingReport
+import config.printingReport as pr
 import html
 from io import StringIO
 import sourcetypes
@@ -2045,10 +2045,10 @@ for area, value in balance_lzh_values.items():
 def printResults(filename1):
     print("Button clicked, generating report...")
 
-    printingReport.styledWells(active_wells_df)
-    printingReport.generate_matplotlib_stackbars(active_wells_df, filename1)
+    pr.styledWells(active_wells_df)
+    pr.generate_matplotlib_stackbars(active_wells_df, filename1)
     # printingReport.generate_image_fromInd(pane=lzh, filename=filename2)
-    printingReport.createPDF(filename1, Scenario_Button, ScenarioSmall_Button, ButtonSmallWells, ButtonCloseNatura, ButtonImportWater, ButtonAddExtraIndustrial, ButtonDemand,total_demand,total_extraction,total_opex,total_capex, co2_pane,drought_pane,natureMidDamage_value, natureHighDamage_value)
+    pr.createPDF(filename1, Scenario_Button, ScenarioSmall_Button, ButtonSmallWells, ButtonCloseNatura, ButtonImportWater, ButtonAddExtraIndustrial, ButtonDemand,total_demand,total_extraction,total_opex,total_capex, co2_pane,drought_pane,natureMidDamage_value, natureHighDamage_value)
     return print("File Created")
 
 # When clicking the button, show the spinner and run the function

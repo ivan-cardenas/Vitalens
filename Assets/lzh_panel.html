@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <title>Panel</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.holoviz.org/panel/1.4.4/dist/images/apple-touch-icon.png">
- <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.holoviz.org/panel/1.4.4/dist/images/favicon.ico">     <style>
+    <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.holoviz.org/panel/1.6.2/dist/images/apple-touch-icon.png">
+ <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.holoviz.org/panel/1.6.2/dist/images/favicon.ico">     <style>
       html, body {
 	display: flow-root;
         box-sizing: border-box;
@@ -13,101 +13,16 @@
         padding: 0;
       }
     </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.css?v=1.4.4" type="text/css" />
-    <link rel="stylesheet" href="https://cdn.holoviz.org/panel/1.4.4/dist/bundled/datatabulator/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css?v=1.4.4" type="text/css" />
-    <link rel="stylesheet" href="
-/* Import Google Fonts */
-@import url("https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
-
-:host,
-:root {
-  --design-primary-color: #151931 !important;
-  --design-secondary-color: #00B893 !important;
-  --design-primary-text-color: #f2f2ed !important;
-  --design-secondary-text-color: #151931 !important;
-  --bokeh-base-font: "Barlow", sans-serif, Verdana !important;
-  --mdc-typography-font-family: "Barlow", sans-serif, Verdana !important;
-  --panel-primary-color: #151931 !important;
-  --panel-background-color: #f2f2ed !important;
-  --panel-on-background-color: #151931 !important;
-  --sidebar-width: 350px;
-}
-
-:host(.active) .bar {
-    background-color: #c2d5f7;    
-}
-
-:host(.bk-above) .bk-header .bk-tab{
-    border: #F2F2ED !important;
-    background: #00000014 !important
-}
-
-#sidebar, #main {
-    background-color: #F2F2ED !important;
-}
-
-hr.dashed {
-  border-top: 1px dashed;
-  border-bottom: none;
-}
-
-.title {
-  font-weight: 600 !important;
-}
-
-.bar {
-        background-color: #b1b1c9;
-    }
-
-.bk-btn {
-  border-radius: 0.5em !important;
-}
-
-.bk-btn bk-btn-primary {
-    font-size: normal !important;
-}
-
-.bk-btn-group {
-  height: 100%;
-  display: flex;
-  flex-wrap: wrap !important;
-  align-items: center;
-}
-
-.bk-btn-primary{
-    font-size: normal !important;
-}
-
-.bk-btn-success{
-  background-position: center;
-  font-weight: 400 !important;
-  font-size: small !important;
-  line-height: 1;
-  margin: 3px 3px; 
-  padding: 5px 10px !important;
-  transition: background 0.8s;
-  width: fit-content;
-}
-
-.bk-btn-warning {
-  margin: 3px;   
-}
-
-.accordion-header button{
-    color: #151931;
-    background-color: #B4BFE4;
-}
-
-
-.bk-tab.bk-active {
-    background: #d3d3cf !imporant;
-    color: #d9534f !important;
-}
-" type="text/css" />
-    <link rel="stylesheet" href="https://cdn.holoviz.org/panel/1.4.4/dist/bundled/font-awesome/css/all.min.css" type="text/css" />
+    <link rel="stylesheet" href="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/plotlyplot/maplibre-gl@4.4.1/dist/maplibre-gl.css?v=1.6.2" type="text/css" />
+    <link rel="stylesheet" href="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/datatabulator/tabulator-tables@6.3.1/dist/css/tabulator_simple.min.css?v=1.6.2" type="text/css" />
+    <link rel="stylesheet" href="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/floatpanel/jspanel4@4.12.0/dist/jspanel.css?v=1.6.2" type="text/css" />
+    <link rel="stylesheet" href="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/notificationarea/notyf@3/notyf.min.css?v=1.6.2" type="text/css" />
+    <link rel="stylesheet" href="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/font-awesome/css/all.min.css?v=1.6.2" type="text/css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" type="text/css" />
     <style>
         
+    
+           
 /* Import Google Fonts */
 @import url("https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
 
@@ -126,12 +41,30 @@ hr.dashed {
 }
 
 :host(.active) .bar {
-    background-color: #c2d5f7;    
+    background-color: #ffc233 !important;    
 }
 
 :host(.bk-above) .bk-header .bk-tab{
     border: #F2F2ED !important;
     background: #00000014 !important
+}
+
+
+::-webkit-scrollbar-track
+{
+	background-color: #F5F5F5;
+}
+
+::-webkit-scrollbar
+{
+	width: 5px !important; 
+	background-color: #F5F5F5;
+}
+
+::-webkit-scrollbar-thumb
+{
+	background-color: #CCC5B9 !important;
+    border-radius: 1px;
 }
 
 #sidebar, #main {
@@ -162,7 +95,7 @@ hr.dashed {
 .bk-btn-group {
   height: 100%;
   display: flex;
-  flex-wrap: wrap !important;
+  flex-wrap: inherit !important;
   align-items: center;
 }
 
@@ -171,6 +104,7 @@ hr.dashed {
 }
 
 .bk-btn-success{
+  background-color: #3872A1;
   background-position: center;
   font-weight: 400 !important;
   font-size: small !important;
@@ -182,7 +116,8 @@ hr.dashed {
 }
 
 .bk-btn-warning {
-  margin: 3px;   
+  margin: 3px;
+  background-color: #f1b858;   
 }
 
 .accordion-header button{
@@ -192,39 +127,87 @@ hr.dashed {
 
 
 .bk-tab.bk-active {
-    background: #d3d3cf !imporant;
+    background: #d3d3cf !important;
     color: #d9534f !important;
 }
 
+.maplegend .legend-title {
+            text-align: left;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 90%;
+            }
+.maplegend .legend-scale ul {
+    margin: 0;
+    margin-bottom: 5px;
+    padding: 0;
+    float: left;
+    list-style: none;
+    }
+.maplegend .legend-scale ul li {
+    list-style: none;
+    margin-left: 0;
+    line-height: 18px;
+    margin-bottom: 2px;
+    }
+.maplegend ul.legend-labels li span {
+    font-size: smaller;
+    display: block;
+    float: left;
+    height: 16px;
+    width: 30px;
+    margin-right: 5px;
+    margin-left: 0;
+    border: 1px solid #999;
+    }
+.maplegend .legend-source {
+    font-size: 80%;
+    color: #777;
+    clear: both;
+    }
+.maplegend a {
+    color: #777;
+    }
+    
+.Label {
+    text-shadow:
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff;  
+}
     </style>
-    <style>
-        https://cdn.holoviz.org/panel/1.4.4/dist/bundled/font-awesome/css/all.min.css
-    </style>
-    <style>
-        https://unpkg.com/leaflet@1.7.1/dist/leaflet.css
-    </style>
-<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.4.4/dist/bundled/echarts/echarts@5.4.1/dist/echarts.min.js"></script>
-<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.4.4/dist/bundled/echarts/echarts-gl@2.0.9/dist/echarts-gl.min.js"></script>
-<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.4.4/dist/bundled/jquery/jquery.slim.min.js"></script>
-<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.4.4/dist/bundled/plotlyplot/plotly-2.31.1.min.js"></script>
-<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.4.4/dist/bundled/datatabulator/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
-<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.4.4/dist/bundled/datatabulator/luxon/build/global/luxon.min.js"></script>
-<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-3.4.1.min.js"></script>
-<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.4.1.min.js"></script>
-<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.4.1.min.js"></script>
-<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.4.1.min.js"></script>
-<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.4.4/dist/panel.min.js"></script>
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@bokeh/ipywidgets_bokeh@1.6.0/dist/ipywidgets_bokeh.js"></script>
+<script type="esms-options">{"shimMode": true}</script>
+
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/echarts/echarts@5.4.1/dist/echarts.min.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/echarts/echarts-gl@2.0.9/dist/echarts-gl.min.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/reactiveesm/es-module-shims@^1.10.0/dist/es-module-shims.min.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/plotlyplot/plotly-3.0.1.min.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/datatabulator/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/datatabulator/luxon/build/global/luxon.min.js"></script>
+<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-3.6.2.min.js"></script>
+<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.6.2.min.js"></script>
+<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.6.2.min.js"></script>
+<script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.6.2.min.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/floatpanel/jspanel4@4.12.0/dist/jspanel.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/floatpanel/jspanel4@4.12.0/dist/extensions/modal/jspanel.modal.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/floatpanel/jspanel4@4.12.0/dist/extensions/tooltip/jspanel.tooltip.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/floatpanel/jspanel4@4.12.0/dist/extensions/hint/jspanel.hint.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/floatpanel/jspanel4@4.12.0/dist/extensions/layout/jspanel.layout.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/floatpanel/jspanel4@4.12.0/dist/extensions/contextmenu/jspanel.contextmenu.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/floatpanel/jspanel4@4.12.0/dist/extensions/dock/jspanel.dock.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/bundled/notificationarea/notyf@3/notyf.min.js"></script>
+<script type="text/javascript" src="https://raw.githubusercontent.com/balladaniel/leaflet-dataclassification/master/dist/leaflet-dataclassification.js"></script>
+<script type="text/javascript" src="https://cdn.holoviz.org/panel/1.6.2/dist/panel.min.js"></script>
 
 <script type="text/javascript">
   Bokeh.set_log_level("info");
 </script>  </head>
   <body>
-    <div id="f89c6bc7-86a4-4d5b-aa39-6fba66fe7fb6" data-root-id="p53076" style="display: contents;"></div>
+    <div id="fd6e2860-d325-49cd-a787-29608c7c69c2" data-root-id="p9445" style="display: contents;"></div>
   
-    <script type="application/json" id="aa436748-47fc-4b03-83eb-ae192e87bfff">
-      {"961917c5-4608-4bb7-9d3e-b7f9cc8fba53":{"version":"3.4.1","title":"Bokeh Application","roots":[{"type":"object","name":"panel.models.layout.Column","id":"p53076","attributes":{"name":"Column14616","tags":["embedded"],"stylesheets":["\n:host(.pn-loading):before, .pn-loading:before {\n  background-color: #c3c3c3;\n  mask-size: auto calc(min(50%, 400px));\n  -webkit-mask-size: auto calc(min(50%, 400px));\n}",{"type":"object","name":"ImportedStyleSheet","id":"p53081","attributes":{"url":"https://cdn.holoviz.org/panel/1.4.4/dist/css/loading.css"}},"\n/* Import Google Fonts */\n@import url(\"https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&amp;display=swap\");\n\n:host,\n:root {\n  --design-primary-color: #151931 !important;\n  --design-secondary-color: #00B893 !important;\n  --design-primary-text-color: #f2f2ed !important;\n  --design-secondary-text-color: #151931 !important;\n  --bokeh-base-font: \"Barlow\", sans-serif, Verdana !important;\n  --mdc-typography-font-family: \"Barlow\", sans-serif, Verdana !important;\n  --panel-primary-color: #151931 !important;\n  --panel-background-color: #f2f2ed !important;\n  --panel-on-background-color: #151931 !important;\n  --sidebar-width: 350px;\n}\n\n:host(.active) .bar {\n    background-color: #c2d5f7;    \n}\n\n:host(.bk-above) .bk-header .bk-tab{\n    border: #F2F2ED !important;\n    background: #00000014 !important\n}\n\n#sidebar, #main {\n    background-color: #F2F2ED !important;\n}\n\nhr.dashed {\n  border-top: 1px dashed;\n  border-bottom: none;\n}\n\n.title {\n  font-weight: 600 !important;\n}\n\n.bar {\n        background-color: #b1b1c9;\n    }\n\n.bk-btn {\n  border-radius: 0.5em !important;\n}\n\n.bk-btn bk-btn-primary {\n    font-size: normal !important;\n}\n\n.bk-btn-group {\n  height: 100%;\n  display: flex;\n  flex-wrap: wrap !important;\n  align-items: center;\n}\n\n.bk-btn-primary{\n    font-size: normal !important;\n}\n\n.bk-btn-success{\n  background-position: center;\n  font-weight: 400 !important;\n  font-size: small !important;\n  line-height: 1;\n  margin: 3px 3px; \n  padding: 5px 10px !important;\n  transition: background 0.8s;\n  width: fit-content;\n}\n\n.bk-btn-warning {\n  margin: 3px;   \n}\n\n.accordion-header button{\n    color: #151931;\n    background-color: #B4BFE4;\n}\n\n\n.bk-tab.bk-active {\n    background: #d3d3cf !imporant;\n    color: #d9534f !important;\n}\n",{"type":"object","name":"ImportedStyleSheet","id":"p53082","attributes":{"url":"https://cdn.holoviz.org/panel/1.4.4/dist/bundled/font-awesome/css/all.min.css"}},{"type":"object","name":"ImportedStyleSheet","id":"p53083","attributes":{"url":"https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"}},{"type":"object","name":"ImportedStyleSheet","id":"p53089","attributes":{"url":"https://cdn.holoviz.org/panel/1.4.4/dist/css/listpanel.css"}},{"type":"object","name":"ImportedStyleSheet","id":"p53078","attributes":{"url":"https://cdn.holoviz.org/panel/1.4.4/dist/bundled/theme/default.css"}},{"type":"object","name":"ImportedStyleSheet","id":"p53085","attributes":{"url":"https://cdn.holoviz.org/panel/1.4.4/dist/bundled/theme/native.css"}}],"min_width":300,"margin":0,"sizing_mode":"stretch_width","align":"start","children":[{"type":"object","name":"panel.models.echarts.ECharts","id":"p53084","attributes":{"stylesheets":["\n:host(.pn-loading):before, .pn-loading:before {\n  background-color: #c3c3c3;\n  mask-size: auto calc(min(50%, 400px));\n  -webkit-mask-size: auto calc(min(50%, 400px));\n}",{"id":"p53081"},"\n/* Import Google Fonts */\n@import url(\"https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&amp;display=swap\");\n\n:host,\n:root {\n  --design-primary-color: #151931 !important;\n  --design-secondary-color: #00B893 !important;\n  --design-primary-text-color: #f2f2ed !important;\n  --design-secondary-text-color: #151931 !important;\n  --bokeh-base-font: \"Barlow\", sans-serif, Verdana !important;\n  --mdc-typography-font-family: \"Barlow\", sans-serif, Verdana !important;\n  --panel-primary-color: #151931 !important;\n  --panel-background-color: #f2f2ed !important;\n  --panel-on-background-color: #151931 !important;\n  --sidebar-width: 350px;\n}\n\n:host(.active) .bar {\n    background-color: #c2d5f7;    \n}\n\n:host(.bk-above) .bk-header .bk-tab{\n    border: #F2F2ED !important;\n    background: #00000014 !important\n}\n\n#sidebar, #main {\n    background-color: #F2F2ED !important;\n}\n\nhr.dashed {\n  border-top: 1px dashed;\n  border-bottom: none;\n}\n\n.title {\n  font-weight: 600 !important;\n}\n\n.bar {\n        background-color: #b1b1c9;\n    }\n\n.bk-btn {\n  border-radius: 0.5em !important;\n}\n\n.bk-btn bk-btn-primary {\n    font-size: normal !important;\n}\n\n.bk-btn-group {\n  height: 100%;\n  display: flex;\n  flex-wrap: wrap !important;\n  align-items: center;\n}\n\n.bk-btn-primary{\n    font-size: normal !important;\n}\n\n.bk-btn-success{\n  background-position: center;\n  font-weight: 400 !important;\n  font-size: small !important;\n  line-height: 1;\n  margin: 3px 3px; \n  padding: 5px 10px !important;\n  transition: background 0.8s;\n  width: fit-content;\n}\n\n.bk-btn-warning {\n  margin: 3px;   \n}\n\n.accordion-header button{\n    color: #151931;\n    background-color: #B4BFE4;\n}\n\n\n.bk-tab.bk-active {\n    background: #d3d3cf !imporant;\n    color: #d9534f !important;\n}\n",{"id":"p53082"},{"id":"p53083"},{"type":"object","name":"ImportedStyleSheet","id":"p53077","attributes":{"url":"https://cdn.jsdelivr.net/npm/material-components-web@7.0.0/dist/material-components-web.min.css"}},{"id":"p53078"},{"type":"object","name":"ImportedStyleSheet","id":"p53079","attributes":{"url":"https://cdn.holoviz.org/panel/1.4.4/dist/bundled/theme/material_variables.css"}},{"type":"object","name":"ImportedStyleSheet","id":"p53080","attributes":{"url":"https://cdn.holoviz.org/panel/1.4.4/dist/bundled/theme/material.css"}}],"width":300,"height":300,"margin":[5,10],"sizing_mode":"fixed","align":["center","center"],"data":{"type":"map","entries":[["tooltip",{"type":"map","entries":[["formatter","{b} : {c}%"]]}],["series",[{"type":"map","entries":[["name","Gauge"],["type","gauge"],["axisTick",{"type":"map","entries":[["show",true]]}],["axisLabel",{"type":"map","entries":[["show",true]]}],["title",{"type":"map","entries":[["fontWeight","bold"],["fontSize",18]]}],["splitLine",{"type":"map","entries":[["show",true]]}],["radius","100%"],["detail",{"type":"map","entries":[["formatter","{value} %"],["valueAnimation",true],["color","inherit"]]}],["min",0],["max",150],["startAngle",225],["endAngle",-45],["splitNumber",10],["data",[{"type":"map","entries":[["value",91.82],["name","Overall \n LZH"]]}]],["axisLine",{"type":"map","entries":[["lineStyle",{"type":"map","entries":[["width",10],["color",[[0.66,"#D9534F"],[0.8,"#f2bf57"],[0.9,"#92C25B"],[1,"#8DCEC0"]]]]}]]}],["pointer",{"type":"map","entries":[["interStyle",{"type":"map","entries":[["color","auto"]]}]]}]]}]]]},"options":null}}]}}],"defs":[{"type":"model","name":"ReactiveHTML1"},{"type":"model","name":"FlexBox1","properties":[{"name":"align_content","kind":"Any","default":"flex-start"},{"name":"align_items","kind":"Any","default":"flex-start"},{"name":"flex_direction","kind":"Any","default":"row"},{"name":"flex_wrap","kind":"Any","default":"wrap"},{"name":"gap","kind":"Any","default":""},{"name":"justify_content","kind":"Any","default":"flex-start"}]},{"type":"model","name":"FloatPanel1","properties":[{"name":"config","kind":"Any","default":{"type":"map"}},{"name":"contained","kind":"Any","default":true},{"name":"position","kind":"Any","default":"right-top"},{"name":"offsetx","kind":"Any","default":null},{"name":"offsety","kind":"Any","default":null},{"name":"theme","kind":"Any","default":"primary"},{"name":"status","kind":"Any","default":"normalized"}]},{"type":"model","name":"GridStack1","properties":[{"name":"mode","kind":"Any","default":"warn"},{"name":"ncols","kind":"Any","default":null},{"name":"nrows","kind":"Any","default":null},{"name":"allow_resize","kind":"Any","default":true},{"name":"allow_drag","kind":"Any","default":true},{"name":"state","kind":"Any","default":[]}]},{"type":"model","name":"drag1","properties":[{"name":"slider_width","kind":"Any","default":5},{"name":"slider_color","kind":"Any","default":"black"},{"name":"value","kind":"Any","default":50}]},{"type":"model","name":"click1","properties":[{"name":"terminal_output","kind":"Any","default":""},{"name":"debug_name","kind":"Any","default":""},{"name":"clears","kind":"Any","default":0}]},{"type":"model","name":"FastWrapper1","properties":[{"name":"object","kind":"Any","default":null},{"name":"style","kind":"Any","default":null}]},{"type":"model","name":"NotificationAreaBase1","properties":[{"name":"js_events","kind":"Any","default":{"type":"map"}},{"name":"position","kind":"Any","default":"bottom-right"},{"name":"_clear","kind":"Any","default":0}]},{"type":"model","name":"NotificationArea1","properties":[{"name":"js_events","kind":"Any","default":{"type":"map"}},{"name":"notifications","kind":"Any","default":[]},{"name":"position","kind":"Any","default":"bottom-right"},{"name":"_clear","kind":"Any","default":0},{"name":"types","kind":"Any","default":[{"type":"map","entries":[["type","warning"],["background","#ffc107"],["icon",{"type":"map","entries":[["className","fas fa-exclamation-triangle"],["tagName","i"],["color","white"]]}]]},{"type":"map","entries":[["type","info"],["background","#007bff"],["icon",{"type":"map","entries":[["className","fas fa-info-circle"],["tagName","i"],["color","white"]]}]]}]}]},{"type":"model","name":"Notification","properties":[{"name":"background","kind":"Any","default":null},{"name":"duration","kind":"Any","default":3000},{"name":"icon","kind":"Any","default":null},{"name":"message","kind":"Any","default":""},{"name":"notification_type","kind":"Any","default":null},{"name":"_destroyed","kind":"Any","default":false}]},{"type":"model","name":"TemplateActions1","properties":[{"name":"open_modal","kind":"Any","default":0},{"name":"close_modal","kind":"Any","default":0}]},{"type":"model","name":"BootstrapTemplateActions1","properties":[{"name":"open_modal","kind":"Any","default":0},{"name":"close_modal","kind":"Any","default":0}]},{"type":"model","name":"TemplateEditor1","properties":[{"name":"layout","kind":"Any","default":[]}]},{"type":"model","name":"MaterialTemplateActions1","properties":[{"name":"open_modal","kind":"Any","default":0},{"name":"close_modal","kind":"Any","default":0}]},{"type":"model","name":"copy_to_clipboard1","properties":[{"name":"fill","kind":"Any","default":"none"},{"name":"value","kind":"Any","default":null}]}]}}
+    <script type="application/json" id="ebfad4f6-037b-432a-b244-15359d0ce00e">
+      {"0a2e2da3-cabe-44ad-9aaa-c3d2875236fb":{"version":"3.6.2","title":"Bokeh Application","roots":[{"type":"object","name":"panel.models.layout.Column","id":"p9445","attributes":{"name":"Column18156","tags":["embedded"],"stylesheets":["\n:host(.pn-loading):before, .pn-loading:before {\n  background-color: #c3c3c3;\n  mask-size: auto calc(min(50%, 400px));\n  -webkit-mask-size: auto calc(min(50%, 400px));\n}",{"type":"object","name":"ImportedStyleSheet","id":"p9113","attributes":{"url":"static/extensions/panel/css/loading.css?v=1.6.2"}},"\n    \n           \n/* Import Google Fonts */\n@import url(\"https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&amp;display=swap\");\n\n:host,\n:root {\n  --design-primary-color: #151931 !important;\n  --design-secondary-color: #00B893 !important;\n  --design-primary-text-color: #f2f2ed !important;\n  --design-secondary-text-color: #151931 !important;\n  --bokeh-base-font: \"Barlow\", sans-serif, Verdana !important;\n  --mdc-typography-font-family: \"Barlow\", sans-serif, Verdana !important;\n  --panel-primary-color: #151931 !important;\n  --panel-background-color: #f2f2ed !important;\n  --panel-on-background-color: #151931 !important;\n  --sidebar-width: 350px;\n}\n\n:host(.active) .bar {\n    background-color: #ffc233 !important;    \n}\n\n:host(.bk-above) .bk-header .bk-tab{\n    border: #F2F2ED !important;\n    background: #00000014 !important\n}\n\n\n::-webkit-scrollbar-track\n{\n\tbackground-color: #F5F5F5;\n}\n\n::-webkit-scrollbar\n{\n\twidth: 5px !important; \n\tbackground-color: #F5F5F5;\n}\n\n::-webkit-scrollbar-thumb\n{\n\tbackground-color: #CCC5B9 !important;\n    border-radius: 1px;\n}\n\n#sidebar, #main {\n    background-color: #F2F2ED !important;\n}\n\nhr.dashed {\n  border-top: 1px dashed;\n  border-bottom: none;\n}\n\n.title {\n  font-weight: 600 !important;\n}\n\n.bar {\n        background-color: #b1b1c9;\n    }\n\n.bk-btn {\n  border-radius: 0.5em !important;\n}\n\n.bk-btn bk-btn-primary {\n    font-size: normal !important;\n}\n\n.bk-btn-group {\n  height: 100%;\n  display: flex;\n  flex-wrap: inherit !important;\n  align-items: center;\n}\n\n.bk-btn-primary{\n    font-size: normal !important;\n}\n\n.bk-btn-success{\n  background-color: #3872A1;\n  background-position: center;\n  font-weight: 400 !important;\n  font-size: small !important;\n  line-height: 1;\n  margin: 3px 3px; \n  padding: 5px 10px !important;\n  transition: background 0.8s;\n  width: fit-content;\n}\n\n.bk-btn-warning {\n  margin: 3px;\n  background-color: #f1b858;   \n}\n\n.accordion-header button{\n    color: #151931;\n    background-color: #B4BFE4;\n}\n\n\n.bk-tab.bk-active {\n    background: #d3d3cf !important;\n    color: #d9534f !important;\n}\n\n.maplegend .legend-title {\n            text-align: left;\n            margin-bottom: 5px;\n            font-weight: bold;\n            font-size: 90%;\n            }\n.maplegend .legend-scale ul {\n    margin: 0;\n    margin-bottom: 5px;\n    padding: 0;\n    float: left;\n    list-style: none;\n    }\n.maplegend .legend-scale ul li {\n    list-style: none;\n    margin-left: 0;\n    line-height: 18px;\n    margin-bottom: 2px;\n    }\n.maplegend ul.legend-labels li span {\n    font-size: smaller;\n    display: block;\n    float: left;\n    height: 16px;\n    width: 30px;\n    margin-right: 5px;\n    margin-left: 0;\n    border: 1px solid #999;\n    }\n.maplegend .legend-source {\n    font-size: 80%;\n    color: #777;\n    clear: both;\n    }\n.maplegend a {\n    color: #777;\n    }\n    \n.Label {\n    text-shadow:\n    -1px -1px 0 #fff,\n    1px -1px 0 #fff,\n    -1px 1px 0 #fff,\n    1px 1px 0 #fff;  \n}\n\n",{"type":"object","name":"ImportedStyleSheet","id":"p9114","attributes":{"url":"https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"}},{"type":"object","name":"ImportedStyleSheet","id":"p9115","attributes":{"url":"static/extensions/panel/css/listpanel.css?v=1.6.2"}},{"type":"object","name":"ImportedStyleSheet","id":"p9447","attributes":{"url":"https://cdn.holoviz.org/panel/1.6.2/dist/bundled/theme/default.css"}},{"type":"object","name":"ImportedStyleSheet","id":"p9451","attributes":{"url":"https://cdn.holoviz.org/panel/1.6.2/dist/bundled/theme/native.css"}}],"min_width":300,"margin":0,"sizing_mode":"stretch_width","align":"start","children":[{"type":"object","name":"panel.models.echarts.ECharts","id":"p9450","attributes":{"stylesheets":["\n:host(.pn-loading):before, .pn-loading:before {\n  background-color: #c3c3c3;\n  mask-size: auto calc(min(50%, 400px));\n  -webkit-mask-size: auto calc(min(50%, 400px));\n}",{"id":"p9113"},"\n    \n           \n/* Import Google Fonts */\n@import url(\"https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&amp;display=swap\");\n\n:host,\n:root {\n  --design-primary-color: #151931 !important;\n  --design-secondary-color: #00B893 !important;\n  --design-primary-text-color: #f2f2ed !important;\n  --design-secondary-text-color: #151931 !important;\n  --bokeh-base-font: \"Barlow\", sans-serif, Verdana !important;\n  --mdc-typography-font-family: \"Barlow\", sans-serif, Verdana !important;\n  --panel-primary-color: #151931 !important;\n  --panel-background-color: #f2f2ed !important;\n  --panel-on-background-color: #151931 !important;\n  --sidebar-width: 350px;\n}\n\n:host(.active) .bar {\n    background-color: #ffc233 !important;    \n}\n\n:host(.bk-above) .bk-header .bk-tab{\n    border: #F2F2ED !important;\n    background: #00000014 !important\n}\n\n\n::-webkit-scrollbar-track\n{\n\tbackground-color: #F5F5F5;\n}\n\n::-webkit-scrollbar\n{\n\twidth: 5px !important; \n\tbackground-color: #F5F5F5;\n}\n\n::-webkit-scrollbar-thumb\n{\n\tbackground-color: #CCC5B9 !important;\n    border-radius: 1px;\n}\n\n#sidebar, #main {\n    background-color: #F2F2ED !important;\n}\n\nhr.dashed {\n  border-top: 1px dashed;\n  border-bottom: none;\n}\n\n.title {\n  font-weight: 600 !important;\n}\n\n.bar {\n        background-color: #b1b1c9;\n    }\n\n.bk-btn {\n  border-radius: 0.5em !important;\n}\n\n.bk-btn bk-btn-primary {\n    font-size: normal !important;\n}\n\n.bk-btn-group {\n  height: 100%;\n  display: flex;\n  flex-wrap: inherit !important;\n  align-items: center;\n}\n\n.bk-btn-primary{\n    font-size: normal !important;\n}\n\n.bk-btn-success{\n  background-color: #3872A1;\n  background-position: center;\n  font-weight: 400 !important;\n  font-size: small !important;\n  line-height: 1;\n  margin: 3px 3px; \n  padding: 5px 10px !important;\n  transition: background 0.8s;\n  width: fit-content;\n}\n\n.bk-btn-warning {\n  margin: 3px;\n  background-color: #f1b858;   \n}\n\n.accordion-header button{\n    color: #151931;\n    background-color: #B4BFE4;\n}\n\n\n.bk-tab.bk-active {\n    background: #d3d3cf !important;\n    color: #d9534f !important;\n}\n\n.maplegend .legend-title {\n            text-align: left;\n            margin-bottom: 5px;\n            font-weight: bold;\n            font-size: 90%;\n            }\n.maplegend .legend-scale ul {\n    margin: 0;\n    margin-bottom: 5px;\n    padding: 0;\n    float: left;\n    list-style: none;\n    }\n.maplegend .legend-scale ul li {\n    list-style: none;\n    margin-left: 0;\n    line-height: 18px;\n    margin-bottom: 2px;\n    }\n.maplegend ul.legend-labels li span {\n    font-size: smaller;\n    display: block;\n    float: left;\n    height: 16px;\n    width: 30px;\n    margin-right: 5px;\n    margin-left: 0;\n    border: 1px solid #999;\n    }\n.maplegend .legend-source {\n    font-size: 80%;\n    color: #777;\n    clear: both;\n    }\n.maplegend a {\n    color: #777;\n    }\n    \n.Label {\n    text-shadow:\n    -1px -1px 0 #fff,\n    1px -1px 0 #fff,\n    -1px 1px 0 #fff,\n    1px 1px 0 #fff;  \n}\n\n",{"id":"p9114"},{"type":"object","name":"ImportedStyleSheet","id":"p9446","attributes":{"url":"https://cdn.jsdelivr.net/npm/material-components-web@7.0.0/dist/material-components-web.min.css"}},{"id":"p9447"},{"type":"object","name":"ImportedStyleSheet","id":"p9448","attributes":{"url":"https://cdn.holoviz.org/panel/1.6.2/dist/bundled/theme/material_variables.css"}},{"type":"object","name":"ImportedStyleSheet","id":"p9449","attributes":{"url":"https://cdn.holoviz.org/panel/1.6.2/dist/bundled/theme/material.css"}}],"width":300,"height":250,"margin":[5,10],"sizing_mode":"fixed","align":["center","center"],"data":{"type":"map","entries":[["tooltip",{"type":"map","entries":[["formatter","{b} : {c}%"]]}],["series",[{"type":"map","entries":[["name","Gauge"],["type","gauge"],["axisTick",{"type":"map","entries":[["show",true]]}],["axisLabel",{"type":"map","entries":[["show",true]]}],["title",{"type":"map","entries":[["fontWeight","bold"],["fontSize",14]]}],["splitLine",{"type":"map","entries":[["show",true]]}],["radius","100%"],["detail",{"type":"map","entries":[["formatter","{value} %"],["valueAnimation",true],["color","inherit"]]}],["min",0],["max",220],["startAngle",225],["endAngle",-45],["splitNumber",10],["data",[{"type":"map","entries":[["value",91.82],["name","Overall LZH"]]}]],["axisLine",{"type":"map","entries":[["lineStyle",{"type":"map","entries":[["width",10],["color",[[0.455,"#D9534F"],[0.545,"#f2bf57"],[0.6136,"#92C25B"],[1,"#446526"]]]]}]]}],["pointer",{"type":"map","entries":[["interStyle",{"type":"map","entries":[["color","auto"]]}]]}]]}]]]},"options":null}}]}}],"defs":[{"type":"model","name":"ReactiveHTML1"},{"type":"model","name":"FlexBox1","properties":[{"name":"align_content","kind":"Any","default":"flex-start"},{"name":"align_items","kind":"Any","default":"flex-start"},{"name":"flex_direction","kind":"Any","default":"row"},{"name":"flex_wrap","kind":"Any","default":"wrap"},{"name":"gap","kind":"Any","default":""},{"name":"justify_content","kind":"Any","default":"flex-start"}]},{"type":"model","name":"FloatPanel1","properties":[{"name":"config","kind":"Any","default":{"type":"map"}},{"name":"contained","kind":"Any","default":true},{"name":"position","kind":"Any","default":"right-top"},{"name":"offsetx","kind":"Any","default":null},{"name":"offsety","kind":"Any","default":null},{"name":"theme","kind":"Any","default":"primary"},{"name":"status","kind":"Any","default":"normalized"}]},{"type":"model","name":"GridStack1","properties":[{"name":"ncols","kind":"Any","default":null},{"name":"nrows","kind":"Any","default":null},{"name":"allow_resize","kind":"Any","default":true},{"name":"allow_drag","kind":"Any","default":true},{"name":"state","kind":"Any","default":[]}]},{"type":"model","name":"drag1","properties":[{"name":"slider_width","kind":"Any","default":5},{"name":"slider_color","kind":"Any","default":"black"},{"name":"value","kind":"Any","default":50}]},{"type":"model","name":"click1","properties":[{"name":"terminal_output","kind":"Any","default":""},{"name":"debug_name","kind":"Any","default":""},{"name":"clears","kind":"Any","default":0}]},{"type":"model","name":"FastWrapper1","properties":[{"name":"object","kind":"Any","default":null},{"name":"style","kind":"Any","default":null}]},{"type":"model","name":"NotificationArea1","properties":[{"name":"js_events","kind":"Any","default":{"type":"map"}},{"name":"max_notifications","kind":"Any","default":5},{"name":"notifications","kind":"Any","default":[]},{"name":"position","kind":"Any","default":"bottom-right"},{"name":"_clear","kind":"Any","default":0},{"name":"types","kind":"Any","default":[{"type":"map","entries":[["type","warning"],["background","#ffc107"],["icon",{"type":"map","entries":[["className","fas fa-exclamation-triangle"],["tagName","i"],["color","white"]]}]]},{"type":"map","entries":[["type","info"],["background","#007bff"],["icon",{"type":"map","entries":[["className","fas fa-info-circle"],["tagName","i"],["color","white"]]}]]}]}]},{"type":"model","name":"Notification","properties":[{"name":"background","kind":"Any","default":null},{"name":"duration","kind":"Any","default":3000},{"name":"icon","kind":"Any","default":null},{"name":"message","kind":"Any","default":""},{"name":"notification_type","kind":"Any","default":null},{"name":"_rendered","kind":"Any","default":false},{"name":"_destroyed","kind":"Any","default":false}]},{"type":"model","name":"TemplateActions1","properties":[{"name":"open_modal","kind":"Any","default":0},{"name":"close_modal","kind":"Any","default":0}]},{"type":"model","name":"BootstrapTemplateActions1","properties":[{"name":"open_modal","kind":"Any","default":0},{"name":"close_modal","kind":"Any","default":0}]},{"type":"model","name":"TemplateEditor1","properties":[{"name":"layout","kind":"Any","default":[]}]},{"type":"model","name":"MaterialTemplateActions1","properties":[{"name":"open_modal","kind":"Any","default":0},{"name":"close_modal","kind":"Any","default":0}]},{"type":"model","name":"ReactiveESM1","properties":[{"name":"esm_constants","kind":"Any","default":{"type":"map"}}]},{"type":"model","name":"JSComponent1","properties":[{"name":"esm_constants","kind":"Any","default":{"type":"map"}}]},{"type":"model","name":"ReactComponent1","properties":[{"name":"esm_constants","kind":"Any","default":{"type":"map"}}]},{"type":"model","name":"AnyWidgetComponent1","properties":[{"name":"esm_constants","kind":"Any","default":{"type":"map"}}]},{"type":"model","name":"request_value1","properties":[{"name":"fill","kind":"Any","default":"none"},{"name":"_synced","kind":"Any","default":null},{"name":"_request_sync","kind":"Any","default":0}]}]}}
     </script>
     <script type="text/javascript">
       (function() {
@@ -232,8 +215,8 @@ hr.dashed {
           Bokeh.safely(function() {
             (function(root) {
               function embed_document(root) {
-              const docs_json = document.getElementById('aa436748-47fc-4b03-83eb-ae192e87bfff').textContent;
-              const render_items = [{"docid":"961917c5-4608-4bb7-9d3e-b7f9cc8fba53","roots":{"p53076":"f89c6bc7-86a4-4d5b-aa39-6fba66fe7fb6"},"root_ids":["p53076"]}];
+              const docs_json = document.getElementById('ebfad4f6-037b-432a-b244-15359d0ce00e').textContent;
+              const render_items = [{"docid":"0a2e2da3-cabe-44ad-9aaa-c3d2875236fb","roots":{"p9445":"fd6e2860-d325-49cd-a787-29608c7c69c2"},"root_ids":["p9445"]}];
               root.Bokeh.embed.embed_items(docs_json, render_items);
               }
               if (root.Bokeh !== undefined) {
@@ -257,7 +240,7 @@ hr.dashed {
           });
         };
         if (document.readyState != "loading") fn();
-        else document.addEventListener("DOMContentLoaded", fn);
+      else document.addEventListener("DOMContentLoaded", fn, {once: true});
       })();
     </script>
   </body>
