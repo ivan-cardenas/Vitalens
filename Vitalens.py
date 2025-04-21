@@ -17,9 +17,12 @@ from io import StringIO
 import sourcetypes
 from scipy.optimize import curve_fit
 from panel.custom import JSComponent
+from shapely.geometry import Point
 
 
+# ------------------------------------------------------
 # Styling
+# ------------------------------------------------------
 globalCss_route= "Stylesheet.css"
 cssStyle = ['''            
 /* Import Google Fonts */
@@ -215,7 +218,9 @@ js_legend = '''
 js_files = {'leaflet-dataclassification': 'https://raw.githubusercontent.com/balladaniel/leaflet-dataclassification/master/dist/leaflet-dataclassification.js',
             'jsLegend': './Assets/test.js'}
 
+# ------------------------------------------------------
 # Initialize extensions
+# ------------------------------------------------------
 pn.config.global_css = cssStyle
 pn.config.css_files = cssStyle
 pn.config.loading_spinner = 'petal'
@@ -230,18 +235,24 @@ pn.extension('floatpanel')
 pn.extension(notifications=True)
 pn.extension(js_files=js_files)
 
-# VARIABLES
-GPKG_FILE = "./Assets/Thematic_Data.gpkg"
-LAYER_WELLS =  "Well_Capacity_Cost"
-LAYER_INDUSTRIAL_WELLS = "Industrial_Extraction"
-LAYER_PIPES = "Pipes_OD"
-NATURE_DAMAGE_CSV = pd.read_csv("./Assets/NatuurEffect.csv")
-CITIES_LAYER = "CitiesHexagonal"
-YEAR_CALC = 2022
-GROW_RATE = 0.0062
-SMALL_BUSINESS_RATE = 1.2
-DEMAND_PERCAPITA = 0.135
+# ------------------------------------------------------
+# CONFIG VARIABLES
+# ------------------------------------------------------
+GPKG_FILE = "./Assets/Thematic_Data.gpkg" # Geopakage with all layers
+LAYER_WELLS =  "Well_Capacity_Cost" # Layer with well data
+LAYER_INDUSTRIAL_WELLS = "Industrial_Extraction" # Layer with industrial well data
+LAYER_PIPES = "Pipes_OD" # Layer with pipe Origin-Destination data
+NATURE_DAMAGE_CSV = pd.read_csv("./Assets/NatuurEffect.csv") # CSV with nature damage effect
+CITIES_LAYER = "CitiesHexagonal" # Layer with cities data
+YEAR_CALC = 2022 # Year for which the calculations are done - initialized to 2022
+GROW_RATE = 0.0062 # Growth rate for the population
+SMALL_BUSINESS_RATE = 1.2 # Small business water demand multiplier
+DEMAND_PERCAPITA = 0.135 # Water demand per capita in m3/day
 
+
+# ------------------------------------------------------
+# LOAD DATA
+# ------------------------------------------------------
 
 # Optimized Data Loading: Read all layers and then filter the required columns
 def load_data(file_path):
@@ -249,9 +260,11 @@ def load_data(file_path):
     industrial = gpd.read_file(file_path, layer=LAYER_INDUSTRIAL_WELLS)
     main_pipes = gpd.read_file(file_path, layer=LAYER_PIPES)
     cities = gpd.read_file(file_path, layer=CITIES_LAYER)
-    return wells, industrial, main_pipes, cities
+    # Get Destination Attributes 
+    hexagons = gpd.read_file(GPKG_FILE, layer="H3_Lvl8")
+    return wells, industrial, main_pipes, cities, hexagons
 
-wells, industrial, main_pipes, cities = load_data(GPKG_FILE)
+wells, industrial, main_pipes, cities, hexagons = load_data(GPKG_FILE)
 
 # Standardize CRS once for all datasets
 target_crs = "EPSG:28992"
@@ -306,12 +319,13 @@ active_wells_df = gpd.GeoDataFrame(
 )
 active_wells_df.astype({"Num_Wells": "int32", "Ownership": "int32"}, copy=False)
 
-
+# Calculate operational expenditure (OPEX) and environmental costs
 original_OPEX = active_wells_df["OPEX"].sum()/1e6
 original_CO2 = (active_wells_df["CO2_m3"]*active_wells_df["Current Extraction"]).sum()
 original_Draught = (active_wells_df["Drought_m3"]*active_wells_df["Current Extraction"]).sum()
 original_excess = active_wells_df["Max_permit"].sum() - active_wells_df["Current Extraction"].sum()
 
+# Calculate the total water demand for cities
 cities_clean = gpd.GeoDataFrame(
     {
         "cityName" : cities["statnaam"],
@@ -322,15 +336,14 @@ cities_clean = gpd.GeoDataFrame(
 
 cities_clean.loc[cities_clean["cityName"].isna(), "Water Demand"] = None
 
+# store the default values for the slider
 demand_capita, smallBusiness = DEMAND_PERCAPITA, SMALL_BUSINESS_RATE
 
-# Get Destination Attributes
-hexagons = gpd.read_file(GPKG_FILE, layer="H3_Lvl8")
 
 # Create a new column 'Type_T' with default values
 hexagons["Type_T"] = ""
 
-# Iterate over rows and assign values based on the 'Type' column
+# Iterate over rows and assign values based on the 'Type' column - This is to classify the areas
 for idx, row in hexagons.iterrows():
     if row["Type"] == 1:
         hexagons.at[idx, "Type_T"] = "Source"
@@ -345,6 +358,7 @@ for idx, row in hexagons.iterrows():
     else:
         hexagons.at[idx, "Type_T"] = "Germany"
 
+# rearange the columns to have a better view
 hexagons_filterd = gpd.GeoDataFrame(
     {
         "GRID_ID": hexagons["GRID_ID"],
@@ -358,10 +372,14 @@ hexagons_filterd = gpd.GeoDataFrame(
         "geometry": hexagons["geometry"],
     }, copy=False
 )
+
+# Calculate the total water demand for the hexagons
 original_demand = hexagons_filterd["Water Demand"].sum()+hexagons_filterd["Industrial Demand"].sum()
 
+# dissolve the hexagons by balance area
 balance_areas= hexagons_filterd.dissolve(by="Balance Area", as_index=False)
 
+# Calculate environmental damage for Natura2000 areas in 2 types: Mid and High - Sensible and Very Sensible
 naturaUnfiltered = NATURE_DAMAGE_CSV
 naturaDamageMid = pd.DataFrame()
 
@@ -415,9 +433,12 @@ for index, row in active_wells_df.iterrows():
     well_data = naturaUnfiltered.loc[naturaUnfiltered["WELL"] == name, "115-VS"]
     if not well_data.empty: naturaDamageHigh.loc[naturaDamageHigh["Name"] == name, "115"] = well_data.values[0]
 
-    
+# initialize the industrial excess to 0
 industrialExcess = 0
 
+# -------------------------------------------------------
+# FUNCTIONS
+# -------------------------------------------------------
 def calculate_total_extraction():
     """
     Calculate the total water extraction from active wells.
@@ -556,13 +577,6 @@ def calculate_affected_Sensitive_Nature():
     
         midDamage = midDamage + mDamage
 
-    
-    # restricted = hexagons_filterd[
-    #     (hexagons_filterd["Source_Name"].isin(names))
-    #     & (hexagons_filterd["Type"] == "Source and Restricted")
-    # ]
-    # total = restricted.shape[0]
-    # ha = total * 629387.503078 / 100000
     return midDamage
 
 def calculate_affected_VerySensitive_Nature():
@@ -582,15 +596,10 @@ def calculate_affected_VerySensitive_Nature():
     
         midDamage = midDamage + mDamage
 
-    
-    # restricted = hexagons_filterd[
-    #     (hexagons_filterd["Source_Name"].isin(names))
-    #     & (hexagons_filterd["Type"] == "Source and Restricted")
-    # ]
-    # total = restricted.shape[0]
-    # ha = total * 629387.503078 / 100000
     return midDamage
-
+# -------------------------------------------------------
+# FUNCTIONS FOR SVG GENERATION - Show damage areas and pipes
+# -------------------------------------------------------
 def generate_area_SVG (n):
     SVG = '''<?xml version="1.0" encoding="UTF-8"?><svg id="Layer_1" height="45px" width="45px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64"><defs><style>.cls-1{stroke-linejoin:bevel;}.cls-1,.cls-2,.cls-3,.cls-4,.cls-5,.cls-6{fill:none;}.cls-1,.cls-3,.cls-4{stroke-width:.7px;}.cls-1,.cls-3,.cls-4,.cls-5,.cls-6{stroke:#e6e6e6;}.cls-1,.cls-4,.cls-5{stroke-linecap:round;}.cls-7{fill:#9bc45b;}.cls-3,.cls-8,.cls-4,.cls-6{stroke-miterlimit:10;}.cls-8{fill:#ccc;stroke:#ccc;}.cls-5{stroke-linejoin:round;}.cls-5,.cls-6{stroke-width:.4px;}.cls-9{fill:#b3b3b3;}.cls-10{clip-path:url(#clippath);}</style><clipPath id="clippath"><path class="cls-2" d="M26.52,4.49c2.42.46,4.79,1.44,7.25,1.25,2.49-.18,4.78-1.54,7.27-1.72,3.17-.24,6.61,1.39,9.39-.15,1.9-1.05,3.24-3.49,5.4-3.34,1.12.08,2.07.91,2.61,1.89s.73,2.11.9,3.22c2.76,17.36,3.68,34.95,4.6,52.5.05.98-.03,2.19-.91,2.61-.5.23-1.08.12-1.61,0-8.39-1.89-16.69-4.15-24.99-6.41-3.43-.94-6.86-1.87-10.3-2.81-1.56-.42-3.16-.87-4.46-1.83-2.55-1.89-3.35-5.28-4.07-8.37-.68-2.9-1.64-6.07-4.18-7.63-1.52-.93-3.43-1.16-4.79-2.3-1.3-1.09-1.86-2.8-2.31-4.43-.74-2.72-1.3-5.49-1.69-8.28-.19-1.4-.35-2.8-.45-4.21-.07-.97-.55-2.93-.14-3.83.68-1.48,4.61-2.59,6.06-3.24,2.49-1.1,5.06-2.07,7.73-2.65,2.85-.63,5.81-.81,8.68-.26Z"/></clipPath></defs><path class="cls-7" d="M26.52,4.49c2.42.46,4.79,1.44,7.25,1.25,2.49-.18,4.78-1.54,7.27-1.72,3.17-.24,6.61,1.39,9.39-.15,1.9-1.05,3.24-3.49,5.4-3.34,1.12.08,2.07.91,2.61,1.89s.73,2.11.9,3.22c2.76,17.36,3.68,34.95,4.6,52.5.05.98-.03,2.19-.91,2.61-.5.23-1.08.12-1.61,0-8.39-1.89-16.69-4.15-24.99-6.41-3.43-.94-6.86-1.87-10.3-2.81-1.56-.42-3.16-.87-4.46-1.83-2.55-1.89-3.35-5.28-4.07-8.37-.68-2.9-1.64-6.07-4.18-7.63-1.52-.93-3.43-1.16-4.79-2.3-1.3-1.09-1.86-2.8-2.31-4.43-.74-2.72-1.3-5.49-1.69-8.28-.19-1.4-.35-2.8-.45-4.21-.07-.97-.55-2.93-.14-3.83.68-1.48,4.61-2.59,6.06-3.24,2.49-1.1,5.06-2.07,7.73-2.65,2.85-.63,5.81-.81,8.68-.26Z"/><g class="cls-10"><path class="cls-8" d="M61.19,60.69c-3.27.07-6.45-1.04-9.49-2.24-.73-.29-1.46-.58-2.24-.7-.72-.11-1.45-.08-2.17-.16-1.02-.12-2.02-.48-2.82-1.11s-1.41-1.53-1.61-2.54c-.18-.9-.02-1.84-.16-2.75-.18-1.19-.87-2.29-1.87-2.96l4.23-1.21,2.65-1.09,2.62-1.45,2.44-.2-4.95,11.67.24.95,13.14,3.79Z"/><path class="cls-4" d="M34.71,28.24c3.5,9.05,5.02,9.96,5.97,19.7"/><path class="cls-9" d="M31.4,20.57l-.74.29,2.33,6.5.57.64s.88.62,2.36-.5,1.87-2.08,1.87-2.08c0,0,1.11-3.06,0-3.74s-2.05-1.32-3.32-1.37-3.08.26-3.08.26Z"/><path class="cls-5" d="M20.56,18.27c-.43-1.19.03-2.19.85-3.14s1.96-1.58,3.1-2.13c2.27-1.12,4.66-2.08,7.18-2.31,3.73-.34,7.4.96,10.87,2.38,1.83.75,3.67,1.56,5.13,2.89,1.97,1.79,3.06,4.33,3.86,6.87,1.59,5.07,2.2,10.44,1.86,15.74-.09,1.43-.27,2.92-1.08,4.1-.63.93-1.58,1.59-2.55,2.16-3.14,1.87-6.69,3.13-10.35,3.29-3.65.17-7.4-.81-10.32-3.01-4.03-3.04-6.11-8.04-7.1-12.99-1-4.95-.43-8.91-1.45-13.85"/><path class="cls-6" d="M27.07,15.76c1.85-.96,4.05-.99,6.13-.73,3.98.49,7.98,2.04,10.62,5.04,3.2,3.64,3.97,8.75,4.61,13.55.17,1.29.33,2.64-.12,3.86-.74,2.01-2.89,3.06-4.85,3.92-2.42,1.07-5.06,2.16-7.64,1.56-2.24-.52-4.01-2.24-5.43-4.05-3.97-5.07-6.75-12.35-6.25-18.88.14-1.81,1.32-3.44,2.92-4.27Z"/><path class="cls-4" d="M4.48,22.48c8.35-2.28,18.94-3.49,27.48-2.06.42.07.79-.29.72-.71-.4-2.23-1.04-4.41-1.33-6.65-.32-2.53-.14-5.25,1.24-7.4"/><path class="cls-4" d="M29.67,45.35c1.02-2.69,3.03-4.67,5.56-6.05s5.33-2.14,8.1-2.89c3.41-.92,6.49-1.85,9.9-2.77"/><path class="cls-4" d="M50.34,20.14c-1.33.33-2.18,1.58-2.99,2.68s-1.87,2.26-3.24,2.25c-1.27,0-2.27-1.01-3.25-1.8-2.32-1.87-6.03-2.91-9.01-2.84"/><path class="cls-4" d="M44.53,14.2c-.38,1.46-.93,3.13-2.34,3.69-.64.26-1.37.23-2.01.47-1.5.56-2.1,2.32-2.53,3.86-.32,1.17-.56,2.62.35,3.41.47.4,1.11.5,1.71.66,2.84.76,5.09,3.39,5.4,6.32.07.65.52,2.5.7,3.13"/><path class="cls-4" d="M13.9,34.05c.98-2.27,1.97-4.55,3.1-6.75.67-1.3,1.39-2.58,1.72-4,.84-3.6-.99-7.24-1.35-10.92-.23-2.35.53-8.33.91-10.66"/><path class="cls-4" d="M14.52,34.97c.91.92.93,2.53,1.98,3.28.67.48,1.57.46,2.37.27,2.8-.66,5.74-3.25,8.57-3.8"/><path class="cls-1" d="M52.55,25.9l5.15-18.43c.97-.67,2.27-1.01,3.44-1.13"/><path class="cls-3" d="M44.94,14.1c.88-3.08,1.88-6.19,3.65-8.86S53.02.34,56.17-.26"/></g></svg>
    '''
@@ -620,6 +629,10 @@ def generate_pipes_SVG(origin, destination, n):
     pane = pn.Row(OD, fig)
     return pane
 
+# ---
+# --- Environmental Cost Calculation functions ---
+# ---
+
 def calculate_total_CO2_cost():
     """
     Calculate the total CO2 emission cost.
@@ -645,6 +658,10 @@ def calculate_total_Drought_cost():
     )
     total_environmental_cost = active_wells["Drought_Cost"].sum()
     return total_environmental_cost
+
+# ----------------------------------------------
+# Functions to update the indicators and DataFrame display
+# ----------------------------------------------
 
 def update_df_display():
     """
@@ -751,7 +768,11 @@ def update_allRadio(event):
     for well_data in active_wells.values():
         well_data["radio_group"].value = selected_value
 
-    
+# --------------------------------------------
+# Functions to update scenarios and indicators
+# --------------------------------------------
+
+ 
 def update_scenarios(event):
     if event.new == "Bevolking 2035":
         Scenario1()
@@ -821,7 +842,10 @@ def styleWellValue (Wellvalue, maxValue):
             'color': '#2d4c4d'
         }
     return valueStyle
-    
+
+# -------------------------------------------------------------------------------
+# FUNCTIONS TO UPDATE DEMAND AND LEVERINGSZEKERHEID INDICATORS - MAIN INDICATORS
+# --------------------------------------------------------------------------------
 
 def current_demand(event):
     global demand_capita 
@@ -918,8 +942,9 @@ def update_balance_lzh_gauges():
         gauge.value = lzh_by_balance.get(area, 0)
         
         
-        
-## MAP SECTION
+# -------------------------------------------------------------------------------	        
+# # MAP SECTION
+# -------------------------------------------------------------------------------
 
 js_content: sourcetypes.javascript
 
@@ -1236,7 +1261,9 @@ def update_layers(wellsLayer=active_wells_df, industryLayer=industrial):
 
     return m
 
-
+# -------------------------------------------------------------------------------
+# # FUNCTIONS FOR ESTIMATING DAMAGE EXTENTS
+# -------------------------------------------------------------------------------
 
 # Logarithmic function
 def log_func(x, a, b):
@@ -1272,7 +1299,9 @@ def estimate_Damage_for_well(type, well_name, target_percentage):
             print(f"Error in fitting the curve: {e}")
             return 0
             
-    
+# ---------------------------------------------------
+# # FUNCTIONS FOR SCENARIO TITLE UPDATES
+# ---------------------------------------------------
 
 active_scenarios = set()
 text = ["## Scenario"]
@@ -1412,7 +1441,9 @@ def update_title(event):
     update_indicators()
 
     
-
+# -------------------------------------------------------------------------------
+# # SCENARIO FUNCTIONS
+# -------------------------------------------------------------------------------
 
 def ScenarioBase():
     """
@@ -1487,6 +1518,10 @@ def ScenarioSmallBusiness2():
     update_indicators()
 
 
+# -------------------------------------------------------------------------------
+# # FUNCTIONS FOR MEASURES
+# -------------------------------------------------------------------------------
+
 def Measure1On():
     # Update the 'Active' column where 'Max_permit' is less than 5.00
     condition = active_wells_df["Max_permit"] < 5.00
@@ -1551,9 +1586,7 @@ def Measure3Off():
         hexagons_filterd["Current Pop"] * demand_capita * smallBusiness * 365
     ) / 1e6
     
-from shapely.geometry import Point
-import geopandas as gpd
-import folium
+
 
 def Measure4On():
     """
@@ -1623,7 +1656,9 @@ def Measure5Off():
     industrialExcess = 0  
 
     
-    
+# -------------------------------------------------------------------------------
+# # RESET FUNCTION
+# -------------------------------------------------------------------------------
 def Reset(event):
     """
     Reset the application to its initial state.
@@ -1669,6 +1704,10 @@ def Reset(event):
     update_scenarioTitle("Status - 2022")
     update_indicators()
 
+# -------------------------------------------------------------------------------
+# # UPDATE INDICATORS FUNCTION --- MAIN FUNCTION
+
+
 def update_indicators(arg=None):
     total_extraction.value = calculate_total_extraction()
     total_opex.value = calculate_total_OPEX()
@@ -1689,6 +1728,10 @@ def update_indicators(arg=None):
     
 
 
+# -------------------------------------------------------------------------------
+# USER INTERFACE ELEMENTS
+# -------------------------------------------------------------------------------
+
 # Initialize a dictionary to hold the active state and slider references
 active_wells = {}
 
@@ -1704,7 +1747,7 @@ Well_radioB = []
 options = ["-15% van Huidige", "Huidige", "85% van Max. Vergunning", "Maximale Vergunning", "115% van Max. Vergunning"]
 
 
-
+# create a dictionary to store the checkboxes and their states
 for index, row in wells.iterrows():
     wellName = row["Name"]
     current_value = row["Extraction_2023__Mm3_per_jr_"]
@@ -1748,7 +1791,7 @@ for index, row in wells.iterrows():
     # Store the active state and radio group reference along with the NamePane
     active_wells[wellName] = {"active": True, "value": current_value, "radio_group": radio_group, "name_pane": extractionPerWell}
 
- 
+# create a section with buttons for all wells together - joint functionality
 all_wellsButton = pn.widgets.RadioButtonGroup(
         name="All Wells",
         options=options,
@@ -1759,22 +1802,24 @@ all_wellsButton = pn.widgets.RadioButtonGroup(
 all_wellsButton.param.watch(update_allRadio,"value")
     
     
-# Maak HTML-tekst voor Wells-tabblad
+# Make HTLM text for description of the balance area
 balance_area_Text = pn.pane.HTML('''
     <h3 align= "center" style="margin: 5px;"> Balansgebieden</h3><hr>
     <p> Hoofdcontrole: Met deze optie kunt u de putten tegelijkertijd bedienen. Anders kunt u ook put voor put bedienen via het uitklapmenu.</p>
     '''
     , width=300, align="start")
 
-# Maak een lay-out voor de radioknoppen
+# Make radio buttons per balance area
 radioButton_layout = pn.Accordion(styles={'width': '95%', 'color':'#151931'})
 for balance_area, layouts in balance_area_buttons.items():
     balance_area_column = pn.Column(*layouts)
     radioButton_layout.append((balance_area, balance_area_column))
 
     
+# ------------------------------------------------------------------
+# Scenario Buttons
+# ------------------------------------------------------------------
 
-    
 Scenario_Button = pn.widgets.RadioButtonGroup(name="Maatregelenknop Groep", options=['Bevolking - 2022', 'Bevolking 2035', 'Bevolking 2035 +1% toename'], button_type='warning', styles={
     'width': '93%', 'border': '3px' }, orientation='vertical'
                                              )
@@ -1785,18 +1830,9 @@ ScenarioSmall_Button = pn.widgets.RadioButtonGroup(name="Maatregelenknop Groep",
                                              )
 ScenarioSmall_Button.param.watch(update_scenariosSmall, "value")
 
-
-# Button1 = pn.widgets.Button(
-#     name='Autonomous growth', button_type="primary", width=300, margin=10,
-# )
-# Button1.param.watch(update_title, 'value')
-# Button1.on_click(Scenario1)
-
-# Button2 = pn.widgets.Button(
-#     name="Accelerated growth", button_type="primary", width=300, margin=10, 
-# )
-# Button2.param.watch(update_title, 'value')
-# Button2.on_click(Scenario2)
+# ------------------------------------------------------------------
+# Measure Buttons
+# ------------------------------------------------------------------
 
 ButtonSmallWells = pn.widgets.Toggle(
     name='Sluit Kleine Putten', button_type="primary", button_style="outline", width=300, margin=10, 
@@ -1831,11 +1867,9 @@ ButtonReset = pn.widgets.Button(
 ButtonReset.on_click(Reset)
 
 
-# textYears = pn.pane.HTML(
-#     '''
-#     <h3 align= "center" style="margin: 5px;"> Year Selection</h3><hr>
-#   ''', width=300, align="start", styles={"margin": "5px"}
-# )
+# ------------------------------------------------------------------
+# Text and HTML elements - Dividers and explanations
+# ------------------------------------------------------------------
 
 textDivider3 = pn.pane.HTML('''<hr class="dashed"> <h3 align= "center" style="margin: 5px;">Scenario's Kleine Bedrijven  <svg xmlns="http://www.w3.org/2000/svg" height="15px" width="15px" viewBox="0 0 512 512" style="cursor:pointer; color: lightgray;"
      ><g><title>"Small Business include bakeries, hair saloons, retail stores, shopping malls, etc."</title><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/><g></svg> </h3> <hr>''')
@@ -1888,12 +1922,7 @@ textDivider0 = pn.pane.HTML('''<hr class="dashed">''')
 textDivider1 = pn.pane.HTML('''<hr class="dashed">''')
 textDivider2 = pn.pane.HTML('''<hr class="dashed">''')
 
-file_create = pn.widgets.Button(name='Create Report', button_type='primary', width=300, margin=10,)
 
-file_download = pn.widgets.FileDownload(file="Vitalens_report.pdf", button_type="primary" , width=300, margin=10,)
-
-# Create a spinner
-spinner = pn.indicators.LoadingSpinner(width=30, height=30, value=False)
 
 def spacer(size):
     spacerVertical = pn.Spacer(height=size)
@@ -1935,8 +1964,22 @@ disclaimer = pn.pane.HTML('''<div style="font-family: Barlow, Arial, sans-serif;
 
 flaotingDisclaimer = pn.layout.FloatPanel(disclaimer, name= "Welcome", margin=20, contained=False, position="center") 
 
+# ------------------------------------------------------------------
+# Buttons for Report Generation
+# ------------------------------------------------------------------
+
+file_create = pn.widgets.Button(name='Create Report', button_type='primary', width=300, margin=10,)
+
+file_download = pn.widgets.FileDownload(file="Vitalens_report.pdf", button_type="primary" , width=300, margin=10,)
+
+# Create a spinner
+spinner = pn.indicators.LoadingSpinner(width=30, height=30, value=False)
 
 
+
+# --------------------------------------------------------------------
+# # LAYOUTS
+# --------------------------------------------------------------------
 scenario_layout = pn.Column(textScenarioPop, Scenario_Button, textDivider3, ScenarioSmall_Button, textEnd, ButtonReset, width=320)
 
 Supply_measures_layout = pn.Column(textMeasureSupp, ButtonSmallWells,textCloseNatura, ButtonCloseNatura, textImport, ButtonImportWater,  textIndustrial, ButtonAddExtraIndustrial, textEnd, ButtonReset, width=320)
@@ -1946,15 +1989,15 @@ Demand_measures_layout = pn.Column(textMeasureDemand, ButtonDemand, textDivider0
 firstColumn = pn.Column(balance_area_Text,all_wellsButton, radioButton_layout)
 secondColumn = pn.Column(file_create, spinner, file_download)
 
-
-
-
+# Create the tabs for the top and bottom sections
 tabTop = pn.Tabs(("1. Scenario's", scenario_layout), ("2. Aanbod", Supply_measures_layout), ("3. Vraag", Demand_measures_layout), width = 320)
 tabBottom = pn.Tabs(("4. Putcapaciteiten", firstColumn), ("5. Rapport genereren", secondColumn), width = 320)
 
 tabs = pn.Column(tabTop, tabBottom, sizing_mode="scale_height")
 
+# --------------------------------------------------------------------
 # MAIN WINDOW
+# --------------------------------------------------------------------
 
 # map_pane = pn.pane.HTML(create_map(52.38, 6.7, 10), sizing_mode="stretch_both")
 map_pane = pn.pane.plot.Folium(update_layers(), sizing_mode="stretch_both")
@@ -1963,6 +2006,7 @@ minusSVG= pn.pane.SVG('<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3
 
 equalSVG = pn.pane.SVG('<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M3 8C2.44772 8 2 8.44772 2 9C2 9.55228 2.44772 10 3 10H21C21.5523 10 22 9.55228 22 9C22 8.44772 21.5523 8 21 8H3Z" fill="#4139a7"></path> <path d="M3 14C2.44772 14 2 14.4477 2 15C2 15.5523 2.44772 16 3 16H21C21.5523 16 22 15.5523 22 15C22 14.4477 21.5523 14 21 14H3Z" fill="#4139a7"></path> </g></svg>', max_width=40,sizing_mode='stretch_width', align='center')
 
+# Indicator for total extraction
 total_extraction = pn.indicators.Number(
     name="Totale Levering",
     value=calculate_total_extraction(),
@@ -1975,6 +2019,7 @@ total_extraction = pn.indicators.Number(
     colors=[(wells["Extraction_2023__Mm3_per_jr_"].sum() - 0.1, '#D9534F'), (wells["Extraction_2023__Mm3_per_jr_"].sum(), '#3850a0'), (1000, '#92C25B')]
 )
 
+# Indicator for total demand
 total_demand = pn.indicators.Number(
     name="Totale Watervraag",
     value=calculate_total_Demand,
@@ -1986,6 +2031,7 @@ total_demand = pn.indicators.Number(
     colors=[(original_demand - 0.1, '#92C25B'), (original_demand, '#3850a0'), (1000, '#D9534F')]
 )
 
+# indicator for Supply-demand balance
 total_difference = pn.indicators.Number(
     name="Waterbalans",
     value=calculate_difference(),
@@ -1999,6 +2045,7 @@ total_difference = pn.indicators.Number(
 
 total_extraction_TT = pn.widgets.TooltipIcon(value="De totale levering wordt berekend als de som van de volumes grondwater die per locatie in een jaar worden onttrokken. De totale vraag wordt berekend als het jaarlijkse verbruik van drinkwater door inwoners en kleine bedrijven.")
 
+# Indicator for Total Operational Expenditure (OPEX)
 total_opex = pn.indicators.Number(
     name="Totale OPEX",
     value=calculate_total_OPEX(),
@@ -2013,6 +2060,7 @@ total_opex = pn.indicators.Number(
 
 total_opex_TT = pn.widgets.TooltipIcon(value="Totale jaarlijkse operationele uitgaven (OPEX).")
 
+# Indicator for Total Capital Expenditure (CAPEX)
 total_capex = pn.indicators.Number(
     name="Totale CAPEX",
     value=calculate_total_CAPEX(),
@@ -2043,6 +2091,7 @@ total_capex_TT = pn.widgets.TooltipIcon(value="Totale investeringsuitgaven (CAPE
 #     for balance, value in balance_opex.items()
 # }
 
+# Indicator for excwss capacity: Surplus water available for extraction
 excess_cap = pn.indicators.Number(
     name="Overcapaciteit",
     value=calculate_available(),
@@ -2057,6 +2106,7 @@ excess_cap = pn.indicators.Number(
 excess_cap_TT = pn.widgets.TooltipIcon(value="Jaarlijks beschikbaar water dat niet uit de putten wordt gewonnen en binnen de maximaal toegestane onttrekking valt.")
 excess_cap_row = pn.Row(excess_cap, excess_cap_TT)
 
+# Indicator for Industrial extraction: Water extraction by large industries
 industrial_extract = pn.indicators.Number(
     name="Industriële Wateronttrekking",
     value=calculate_industrial_extract(),
@@ -2070,7 +2120,9 @@ industrial_extract_TT = pn.widgets.TooltipIcon(value="Geschatte jaarlijkse grond
 
 industrial_extract_row = pn.Row(industrial_extract, industrial_extract_TT)
 
-
+# ----------------------------------------------------------
+# # Create the right pane with the indicators
+# ----------------------------------------------------------
 right_pane = pn.Column(excess_cap_row,industrial_extract_row)
 
 # own_pane = pn.indicators.Number(
@@ -2085,6 +2137,9 @@ right_pane = pn.Column(excess_cap_row,industrial_extract_row)
 #     sizing_mode="stretch_width"
 # )
 
+# ---------------------------------------------------------------
+
+# Indicator for Middle Nature Damage: Estimated area of sensitive nature affected by drought
 natureMidDamage_value = pn.indicators.Number(
     name="Geschatte <b>Gevoelige</b> Natuur getroffen gebied",
     value=calculate_affected_Sensitive_Nature(),
@@ -2098,6 +2153,7 @@ natureMidDamage_value = pn.indicators.Number(
     }
 )
 
+# Indicator for High Nature Damage: Estimated area of very sensitive nature affected by drought
 natureHighDamage_value = pn.indicators.Number(
     name="Geschatte <b>Zeer Gevoelige</b> Natuur getroffen gebied",
     value=calculate_affected_VerySensitive_Nature(),
@@ -2116,12 +2172,15 @@ natureDamage_TT = pn.widgets.TooltipIcon(value='Dit gebied komt overeen met de o
 
 # nature_title = pn.Row(natureMidDamage_value,natureDamage_TT, sizing_mode="scale_both" )
 
+# Create the SVG area representations for sensitive and very sensitive nature
 # Use pn.bind to dynamically bind the number of stars to the pane
 keukenhofsMid = pn.bind(generate_area_SVG, natureMidDamage_value)
 keukenhofsHigh = pn.bind(generate_area_SVG, natureHighDamage_value)
 keuk_text = pn.pane.HTML("<p style='font-size: small;'>Weergegeven in aantal stadscentra van Enschede</p>")
 natura_pane = pn.Column(natureDamage_TT, natureHighDamage_value, spacer(10), keukenhofsHigh, natureMidDamage_value, spacer(10), keukenhofsMid, keuk_text, sizing_mode='scale_both')
 
+
+# Create the SVG area representations for Pipes direction: Origin and Destination, this represents risk in the system in case of failure
 pipes_TT = pn.widgets.TooltipIcon(value="Elk pictogram vertegenwoordigt het aantal verbindingen tussen twee balansgebieden, dit is een indicator van kwetsbaarheid in het systeem.")
 
 pipes_pane = pn.Row(
@@ -2133,6 +2192,7 @@ pipes_pane = pn.Row(
     generate_pipes_SVG("Dinkelland", "Stedenband", 1), 
 )
 
+# Indiator for CO2 cost: Estimated CO2 emissions cost of the water extraction
 co2_pane = pn.indicators.Number(
     name="CO\u2082 Emissiekosten",
     value=calculate_total_CO2_cost(),
@@ -2143,6 +2203,7 @@ co2_pane = pn.indicators.Number(
     colors=[(original_CO2 - 0.1, '#92C25B'), (original_CO2, '#3850a0'), (1000, '#D9534F')]
 )
 
+#Indicator for Drought cost: Estimated cost of drought impact on the water supply
 drought_pane = pn.indicators.Number(
     name="Schadekosten door Droogte",
     value=calculate_total_Drought_cost(),
@@ -2153,6 +2214,7 @@ drought_pane = pn.indicators.Number(
     colors=[(original_Draught - 0.1, '#92C25B'), (original_Draught, '#3850a0'), (1000, '#D9534F')]
 )
 
+# Indicator for LZH: Supply reliability, percentage of demand met by supply
 lzh = pn.indicators.Gauge(
     name="Algemene LZH",
     value=calculate_lzh(),
@@ -2170,7 +2232,7 @@ lzh.param.watch(update_indicators, "value")
 lzh_definition = pn.pane.HTML("LZH: Het is het percentage van de vraag naar drinkwater dat door de levering wordt gedekt")
 lzh_tooltip = pn.pane.HTML("LZH: Leveringszekerheid, is het percentage van de vraag naar drinkwater dat door de levering wordt gedekt. Je kunt de LZH voor elk balansgebied zien door de tabbladen aan de rechterkant te selecteren. Deze waarden gaan uit van een gesloten systeem.")
 
-
+# Calculate LZH for each balance area and create gauges
 balance_lzh_gauges = {}
 balance_lzh_values = calculate_lzh_by_balance()
 for area, value in balance_lzh_values.items():
@@ -2189,7 +2251,9 @@ for area, value in balance_lzh_values.items():
     balance_lzh_gauges[area] = gauge
 
 
-
+# ---------------------------------------------------------
+# Function to generate the report
+# ---------------------------------------------------------
 def printResults(filename1):
     print("Button clicked, generating report...")
 
@@ -2207,9 +2271,12 @@ def on_button_click(event):
     pn.state.notifications.position = 'bottom-left'
     pn.state.notifications.success('Report File created, you can download it now', duration=4000)
 
-
+# Create the report button and link it to the function
 file_create.on_click(on_button_click)
 
+# ------------------------------------------------------
+# Create Environmental costs pane
+# ------------------------------------------------------
 
 # lzhTabs = pn.Tabs(lzh, *balance_lzh_gauges.values(), align=("center", "center"))
 Env_pane = pn.Column(co2_pane, drought_pane)
@@ -2227,15 +2294,16 @@ verticalLine = pn.pane.HTML(
     <hr style="width: 1px; height: 100px; display: flex;">
     '''
 )
-
+# Row witjh the indicators for supply and demand
 Supp_dem =  pn.Row(
     total_extraction, minusSVG, total_demand, equalSVG, total_difference, total_extraction_TT)
 
+# Create the app title and population indicator
 app_title = pn.pane.Markdown("## Scenario: State - 2022", styles={
     "text-align": "right",
     "color": "#2f4279"
 })
-
+# create population indicator
 Pop_pane = pn.indicators.Number(
     name="Bevolking",
     value=0,
@@ -2244,7 +2312,7 @@ Pop_pane = pn.indicators.Number(
     font_size="20pt",
     title_size="12pt",
 )
-
+# create consumption indicator
 consumption_pane = pn.indicators.Number(
     name="Verbruik",
     value=demand_capita*1000,
@@ -2255,12 +2323,20 @@ consumption_pane = pn.indicators.Number(
     colors=[(135 - 0.1, '#92C25B'), (135, '#3850a0'), (1000, '#D9534F')]
 )
 
+# --------------------------------------------------------
+# Create the map title and help text
+# --------------------------------------------------------
 MapTitle = pn.pane.HTML('''<b style="font-size: large; float: right; color: #2f4279;">Overijssel Zuid</b>''')
 Map_help = pn.widgets.TooltipIcon(value="De gegevens die op deze kaart worden weergegeven zijn statisch. Dit betekent dat ze niet veranderen wanneer de widgets aan de linkerkant van de app worden aangepast. Ze vertegenwoordigen bevolkingsgegevens van december 2022 en de waterwinning van 2023.\n\nDe Balansgebieden vertegenwoordigen gebieden binnen het Overijssel Zuid Cluster die direct worden gevoed door ten minste een productielocatie en zijn gekoppeld aan een ander balansgebied voor dynamische waterverdeling.", width=10, align='end')
 
 
 MapTitle_TT = pn.Row( Map_help,MapTitle, align="end", sizing_mode="scale_width")
 
+# --------------------------------------------------------
+# Create the main layout with the map and indicators
+# --------------------------------------------------------
+
+# Setup of layout is done with GridSpec, specifying the columns and rowsfor the layout
 main1 = pn.GridSpec(sizing_mode="scale_both")
 main1[0, 2:5] = pn.Column(MapTitle_TT, map_pane, pipes_pane )
 
@@ -2278,6 +2354,9 @@ IndicatorsPane[0,3:5] = pn.Column(
 main1[0, 0:2] = pn.Column(app_title, IndicatorsPane, sizing_mode="scale_both")
 
 
+# ----------------------------------------------------------
+# CREATE THE MAIN APPLICATION BOX
+# ----------------------------------------------------------
 Box = pn.template.MaterialTemplate(
     title="Vitalens",
     logo="https://uavonline.nl/wp-content/uploads/2020/11/vitens-logo-1.png",
@@ -2293,7 +2372,9 @@ Box.main.append(flaotingDisclaimer)
 
 
 
-
+# ----------------------------------------------------------
+# FUNCTION TO INITIALIZE THE INDICATORS
+# ----------------------------------------------------------
 def total_extraction_update():
     """
     Update the total extraction and related indicators.
@@ -2312,5 +2393,8 @@ def total_extraction_update():
     flaotingDisclaimer
     Pop_pane.value = hexagons_filterd["Current Pop"].sum()
 
+# ----------------------------------------------------------
+# INITIALIZE THE APP
+# ----------------------------------------------------------
 total_extraction_update()
-Box.servable()
+Box.servable() # This line is necessary to run the app in a local server or in a notebook
